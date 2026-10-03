@@ -20,6 +20,11 @@ class GpmStartProfileError(CollectorError):
     pass
 
 
+class CdpConnectionError(CollectorError):
+    """Lỗi khi kết nối Playwright qua Chrome DevTools Protocol (CDP)."""
+    pass
+
+
 class StudioNavigationError(CollectorError):
     """Lỗi khi điều hướng trong YouTube Studio."""
     pass

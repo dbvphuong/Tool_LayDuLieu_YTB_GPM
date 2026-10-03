@@ -35,7 +35,7 @@
 ---
 
 ### Giai đoạn 2: Tự động hóa YouTube Studio qua Playwright CDP
-- [ ] **Task 2.1:** Xây dựng module kết nối Playwright CDP (`integrations/studio/session.py`):
+- [x] **Task 2.1:** Xây dựng module kết nối Playwright CDP (`integrations/studio/session.py`):
   - Kết nối vào Chrome GPM bằng `playwright.chromium.connect_over_cdp(cdp_url)`.
   - Không khởi tạo trình duyệt mới, dùng chính context đang chạy.
 - [ ] **Task 2.2:** Xây dựng module nhận diện kênh & điều hướng (`integrations/studio/pages/analytics.py`):
