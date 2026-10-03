@@ -32,6 +32,14 @@ class GpmStartResult(BaseModel):
     message: Optional[str] = None
 
 
+class ChannelIdentity(BaseModel):
+    """Thông tin nhận diện kênh YouTube sau khi trích xuất từ YouTube Studio."""
+    channel_id: str = Field(..., description="ID kênh YouTube (bắt đầu bằng UC...)")
+    channel_name: str = Field(..., description="Tên kênh YouTube hiển thị")
+    url: str = Field(default="", description="URL hiện tại của kênh trong Studio")
+    is_authenticated: bool = Field(default=True, description="Trạng thái đã đăng nhập")
+
+
 class ChannelCache(BaseModel):
     """Cache thông tin đăng nhập và kênh YouTube của một profile."""
     profile_id: str

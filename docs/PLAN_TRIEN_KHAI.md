@@ -38,7 +38,7 @@
 - [x] **Task 2.1:** Xây dựng module kết nối Playwright CDP (`integrations/studio/session.py`):
   - Kết nối vào Chrome GPM bằng `playwright.chromium.connect_over_cdp(cdp_url)`.
   - Không khởi tạo trình duyệt mới, dùng chính context đang chạy.
-- [ ] **Task 2.2:** Xây dựng module nhận diện kênh & điều hướng (`integrations/studio/pages/analytics.py`):
+- [x] **Task 2.2:** Xây dựng module nhận diện kênh & điều hướng (`integrations/studio/pages/analytics.py`):
   - Truy cập `https://studio.youtube.com`.
   - Kiểm tra trạng thái đăng nhập và trích xuất `channel_id`, `channel_name`.
   - Điều hướng tới trang "Số liệu phân tích" (Analytics).
