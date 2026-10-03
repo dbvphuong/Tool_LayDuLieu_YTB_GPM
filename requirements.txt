@@ -1,0 +1,15 @@
+# UI Framework
+PySide6>=6.6.0
+
+# Browser Automation qua CDP
+playwright>=1.40.0
+
+# HTTP Client gọi GPM Local API
+httpx>=0.25.0
+
+# Xử lý và chuẩn hóa dữ liệu Excel / CSV
+pandas>=2.1.0
+openpyxl>=3.1.0
+
+# Data Validation & Models
+pydantic>=2.5.0

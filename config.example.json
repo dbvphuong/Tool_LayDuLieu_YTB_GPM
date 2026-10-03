@@ -1,0 +1,19 @@
+{
+  "gpm": {
+    "api_base_url": "http://127.0.0.1:19996",
+    "app_path": "D:\\GPMLogin\\GPMLoginGlobal",
+    "profiles_path": "D:\\GPMLogin\\Profile_Chrome_GPM",
+    "timeout_seconds": 30
+  },
+  "storage": {
+    "runs_dir": "runs",
+    "keep_raw": true,
+    "save_evidence_screenshots": true
+  },
+  "collection": {
+    "default_period": "28d",
+    "default_mode": "standard",
+    "collect_revenue": false,
+    "language": "vi"
+  }
+}
