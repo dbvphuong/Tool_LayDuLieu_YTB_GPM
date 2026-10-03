@@ -10,7 +10,7 @@ from pathlib import Path
 import httpx
 
 from ytb_gpm_collector.config import read_gpm_api_port_from_setting, get_gpm_database_path, is_port_open
-from ytb_gpm_collector.domain.models import GpmProfile, GpmStartResult
+from ytb_gpm_collector.domain.models import GpmProfile, GpmGroup, GpmStartResult
 from ytb_gpm_collector.domain.errors import (
     GpmConnectionError,
     GpmProfileNotFoundError,
@@ -63,15 +63,126 @@ class GpmClient:
                     continue
         return False
 
+    def get_groups(self) -> List[GpmGroup]:
+        """
+        Lấy danh sách tất cả các Nhóm (Groups) profile từ GPM.
+        Ưu tiên gọi qua Local API (v1 / v3).
+        Nếu API chưa khởi động hoặc lỗi, đọc trực tiếp từ SQLite database.db của GPM.
+        """
+        if self.check_connection():
+            try:
+                groups = self._get_groups_from_api()
+                if groups:
+                    return groups
+            except Exception as e:
+                logger.warning(f"Lỗi gọi API get_groups ({e}), chuyển sang đọc database cục bộ.")
+
+        # Đọc trực tiếp từ SQLite database của GPM
+        if self.db_path and self.db_path.exists():
+            return self._get_groups_from_db()
+
+        return []
+
+    def _get_groups_from_api(self) -> List[GpmGroup]:
+        """Gọi API GPM để lấy danh sách nhóm."""
+        endpoints = [
+            f"{self.base_url}/api/v1/groups?page=1&page_size=1000",
+            f"{self.base_url}/api/v3/groups",
+            f"{self.base_url}/groups",
+        ]
+        with httpx.Client(timeout=min(5.0, self.timeout)) as client:
+            for ep in endpoints:
+                try:
+                    resp = client.get(ep)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        raw_list = []
+                        if isinstance(data, dict):
+                            if "data" in data and isinstance(data["data"], dict) and "data" in data["data"]:
+                                raw_list = data["data"]["data"]
+                            elif "data" in data and isinstance(data["data"], list):
+                                raw_list = data["data"]
+                            elif "groups" in data:
+                                raw_list = data["groups"]
+                        elif isinstance(data, list):
+                            raw_list = data
+
+                        results = []
+                        for item in raw_list:
+                            g_id = item.get("id") or item.get("group_id")
+                            g_name = item.get("name") or item.get("group_name", "Unknown")
+                            g_order = item.get("sort_order") or item.get("order") or 0
+                            if g_id:
+                                results.append(
+                                    GpmGroup(
+                                        id=str(g_id),
+                                        name=str(g_name),
+                                        sort_order=int(g_order or 0),
+                                    )
+                                )
+                        if results:
+                            # Sắp xếp theo sort_order và tên
+                            results.sort(key=lambda x: (x.sort_order if x.sort_order is not None else 0, x.name))
+                            return results
+                except Exception as e:
+                    logger.debug(f"Lỗi khi thử endpoint groups {ep}: {e}")
+                    continue
+        return []
+
+    def _get_groups_from_db(self) -> List[GpmGroup]:
+        """Đọc danh sách nhóm từ file SQLite database của GPM."""
+        results = []
+        if not self.db_path or not self.db_path.exists():
+            return results
+        conn = sqlite3.connect(str(self.db_path))
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='groups';")
+            if not cursor.fetchone():
+                return results
+
+            cursor.execute("PRAGMA table_info(groups);")
+            columns = [c[1] for c in cursor.fetchall()]
+
+            order_col = '"order"' if "order" in columns else ("sort_order" if "sort_order" in columns else "name")
+            cursor.execute(f"SELECT * FROM groups ORDER BY {order_col} ASC, name ASC;")
+            rows = cursor.fetchall()
+            for r in rows:
+                item = dict(zip(columns, r))
+                g_id = item.get("id")
+                g_name = item.get("name", "Unknown")
+                g_order = item.get("order") or item.get("sort_order") or 0
+                if g_id:
+                    results.append(
+                        GpmGroup(
+                            id=str(g_id),
+                            name=str(g_name),
+                            sort_order=int(g_order or 0),
+                        )
+                    )
+        except Exception as e:
+            logger.warning(f"Lỗi đọc groups từ DB: {e}")
+        finally:
+            conn.close()
+        return results
+
     def get_profiles(self) -> List[GpmProfile]:
         """
         Lấy danh sách tất cả profile từ GPM.
         Ưu tiên gọi qua Local API (v1 / v3).
         Nếu API chưa khởi động hoặc chưa mở port, tự động đọc trực tiếp từ database.db của GPM.
         """
+        # Tải danh sách nhóm trước để map group_id -> group_name
+        group_map: Dict[str, str] = {}
+        try:
+            groups = self.get_groups()
+            group_map = {g.id: g.name for g in groups}
+        except Exception as g_err:
+            logger.debug(f"Không thể tải groups để gán tên: {g_err}")
+
         if self.check_connection():
             try:
-                profiles = self._get_profiles_from_api()
+                profiles = self._get_profiles_from_api(group_map)
                 if profiles:
                     return profiles
             except Exception as e:
@@ -79,14 +190,15 @@ class GpmClient:
 
         # Đọc trực tiếp từ SQLite database của GPM
         if self.db_path and self.db_path.exists():
-            return self._get_profiles_from_db()
+            return self._get_profiles_from_db(group_map)
 
         raise GpmConnectionError(
             f"Không thể kết nối tới GPM API tại {self.base_url} và không tìm thấy database tại {self.db_path}."
         )
 
-    def _get_profiles_from_api(self) -> List[GpmProfile]:
+    def _get_profiles_from_api(self, group_map: Optional[Dict[str, str]] = None) -> List[GpmProfile]:
         """Gọi API GPM để lấy danh sách profile."""
+        group_map = group_map or {}
         endpoints = [
             f"{self.base_url}/api/v1/profiles?page=1&page_size=1000",
             f"{self.base_url}/api/v3/profiles",
@@ -117,6 +229,10 @@ class GpmClient:
                             b_info = item.get("browser", {})
                             b_type = b_info.get("name", "Chrome") if isinstance(b_info, dict) else item.get("browser_type", "Chrome")
                             b_version = b_info.get("version") if isinstance(b_info, dict) else item.get("browser_version")
+                            g_id = item.get("group_id")
+                            g_name = item.get("group_name") or group_map.get(str(g_id)) if g_id else None
+                            p_note = item.get("note") or ""
+
                             if p_id:
                                 results.append(
                                     GpmProfile(
@@ -125,7 +241,9 @@ class GpmClient:
                                         raw_proxy=raw_proxy or None,
                                         browser_type=b_type,
                                         browser_version=b_version,
-                                        group_id=item.get("group_id"),
+                                        group_id=str(g_id) if g_id else None,
+                                        group_name=g_name,
+                                        note=str(p_note) if p_note else None,
                                     )
                                 )
                         if results:
@@ -135,14 +253,24 @@ class GpmClient:
                     continue
         return []
 
-    def _get_profiles_from_db(self) -> List[GpmProfile]:
+    def _get_profiles_from_db(self, group_map: Optional[Dict[str, str]] = None) -> List[GpmProfile]:
         """Đọc trực tiếp danh sách profile từ file SQLite database của GPM."""
         results = []
+        group_map = group_map or {}
         conn = sqlite3.connect(str(self.db_path))
         try:
             cursor = conn.cursor()
             cursor.execute("PRAGMA table_info(profiles);")
             columns = [c[1] for c in cursor.fetchall()]
+
+            # Nạp group_map từ bảng groups nếu chưa có
+            if not group_map:
+                try:
+                    cursor.execute("SELECT id, name FROM groups;")
+                    for gid, gname in cursor.fetchall():
+                        group_map[str(gid)] = str(gname)
+                except Exception:
+                    pass
 
             cursor.execute("SELECT * FROM profiles ORDER BY name ASC;")
             rows = cursor.fetchall()
@@ -151,15 +279,22 @@ class GpmClient:
                 p_id = item.get("id")
                 p_name = item.get("name", "Unknown")
 
-                # Trích xuất proxy từ dynamic_data, extra_data hoặc raw_proxy
+                # Trích xuất proxy và note từ dynamic_data, extra_data hoặc raw_proxy
                 raw_proxy = item.get("raw_proxy")
+                p_note = item.get("note") or ""
                 dyn_str = item.get("dynamic_data") or item.get("extra_data")
-                if not raw_proxy and dyn_str:
+                if dyn_str:
                     try:
                         parsed = json.loads(dyn_str)
-                        raw_proxy = parsed.get("proxy", {}).get("raw_proxy")
+                        if not raw_proxy:
+                            raw_proxy = parsed.get("proxy", {}).get("raw_proxy")
+                        if not p_note:
+                            p_note = parsed.get("note") or ""
                     except Exception:
                         pass
+
+                g_id = item.get("group_id")
+                g_name = group_map.get(str(g_id)) if g_id else None
 
                 results.append(
                     GpmProfile(
@@ -168,7 +303,9 @@ class GpmClient:
                         raw_proxy=raw_proxy or None,
                         browser_type=item.get("browser_type", "Chrome"),
                         browser_version=item.get("browser_version"),
-                        group_id=item.get("group_id"),
+                        group_id=str(g_id) if g_id else None,
+                        group_name=g_name,
+                        note=str(p_note) if p_note else None,
                     )
                 )
         finally:

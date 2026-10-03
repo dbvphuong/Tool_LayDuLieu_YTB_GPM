@@ -51,45 +51,46 @@
 ---
 
 ### Giai đoạn 3: Chuẩn hóa dữ liệu & Sinh báo cáo
-- [ ] **Task 3.1:** Xây dựng module Parser đọc file Excel/CSV (`integrations/exports/readers.py`):
+- [x] **Task 3.1:** Xây dựng module Parser đọc file Excel/CSV (`integrations/exports/readers.py`):
   - Nhận diện các cột tiếng Việt: *Lượt xem, Thời gian xem (giờ), Tỷ lệ nhấp của lượt hiển thị, Số lượt hiển thị, Thời lượng xem trung bình*.
-- [ ] **Task 3.2:** Xây dựng module Chuẩn hóa (`integrations/exports/normalize.py`):
+- [x] **Task 3.2:** Xây dựng module Chuẩn hóa (`integrations/exports/normalize.py`):
   - Chuyển đổi về cấu trúc số chuẩn, xử lý dữ liệu trống (`zero`, `not_available`, `failed`).
   - Xuất ra các file sạch: `videos.csv`, `videos.jsonl`, `traffic_sources.csv` trong `data/`.
-- [ ] **Task 3.3:** Xây dựng module Báo cáo (`storage/runs.py`):
+- [x] **Task 3.3:** Xây dựng module Báo cáo (`storage/runs.py`):
   - Tự động sinh `README.md` tóm tắt kết quả (cho người dùng đọc).
   - Sinh `manifest.json` và `quality_report.json` (cho AI đọc và đối chiếu chất lượng).
 
 ---
 
 ### Giai đoạn 4: Giao diện PySide6 (Giao diện Xanh dương, 1 Cửa sổ, Sidebar)
-- [ ] **Task 4.1:** Xây dựng kiến trúc giao diện & Stylesheet chuẩn Soft Blue:
+- [x] **Task 4.1:** Xây dựng kiến trúc giao diện & Stylesheet chuẩn Soft Blue:
   - Khung chính `MainWindow` gồm Sidebar bên trái (Navy Slate `#1E293B`) và `QStackedWidget` bên phải.
   - Bộ QSS (Qt Style Sheet) tối ưu màu sắc xanh dương nhẹ nhàng dịu mắt, chữ tương phản cao.
-- [ ] **Task 4.2:** Xây dựng **Tab 1: Thu thập dữ liệu**:
+- [x] **Task 4.2:** Xây dựng **Tab 1: Thu thập dữ liệu**:
   - Bảng danh sách chọn nhiều Profile GPM (kèm proxy, checkbox chọn từng cái hoặc chọn tất cả).
+  - Bộ lọc chọn theo Nhóm Profile GPM (như trên giao diện GPMLogin), tự động đếm số lượng profile theo nhóm, kết hợp mượt mà với tìm kiếm từ khóa.
   - Cấu hình số luồng chạy song song (1 - 10 luồng, mặc định 2).
-  - Nút "Làm mới danh sách profile".
+  - Nút "Làm mới danh sách profile" và nhóm.
   - Lựa chọn video: Theo số lượng gần nhất (5, 10, 20...) HOẶC theo khoảng ngày đăng, hoặc toàn bộ video.
   - Lựa chọn khung thời gian phân tích số liệu (28 ngày qua, 90 ngày...).
   - Nút bấm to nổi bật **[ BẮT ĐẦU THU THẬP ]**.
   - Thanh tiến trình tổng (% hoàn thành) và bảng trạng thái các luồng đang chạy.
-- [ ] **Task 4.3:** Xây dựng **Tab 2: Lịch sử & Kết quả**:
+- [x] **Task 4.3:** Xây dựng **Tab 2: Lịch sử & Kết quả**:
   - Bảng danh sách các đợt chạy trong `runs/`.
   - Nút mở thư mục chứa file, nút xem nhanh README tóm tắt.
-- [ ] **Task 4.4:** Xây dựng **Tab 3: Nhật ký (Logs)**:
+- [x] **Task 4.4:** Xây dựng **Tab 3: Nhật ký (Logs)**:
   - Khung hiển thị log real-time màu sắc trực quan (INFO, SUCCESS, WARNING, ERROR).
   - Nút "Sao chép toàn bộ log", nút "Xóa log".
-- [ ] **Task 4.5:** Xây dựng **Tab 4: Cài đặt (Settings)**:
+- [x] **Task 4.5:** Xây dựng **Tab 4: Cài đặt (Settings)**:
   - Form cấu hình cổng GPM API (`19996`), số luồng song song mặc định, thư mục lưu kết quả, timeout.
-- [ ] **Task 4.6:** Đấu nối Worker Thread Pool (`QThreadPool` / `QThread` Concurrency Queue):
+- [x] **Task 4.6:** Đấu nối Worker Thread Pool (`QThreadPool` / `QThread` Concurrency Queue):
   - Cơ chế hàng đợi luân phiên: chạy tối đa N luồng cùng lúc; xong profile nào lập tức đóng profile đó và bốc profile tiếp theo trong hàng đợi.
   - Bắn tín hiệu `Signal` cập nhật UI mượt mà, log real-time theo từng luồng, không đơ lag app.
 
 ---
 
 ### Giai đoạn 5: Kiểm thử hoàn chỉnh (E2E Test) & Hoàn thiện
-- [ ] **Task 5.1:** Thực hiện chạy kiểm thử toàn trình từ UI với profile **`06`**.
-- [ ] **Task 5.2:** Kiểm tra gói kết quả sinh ra trong `runs/`: file gốc `raw/`, file sạch `data/`, ảnh `evidence/`, báo cáo `README.md`.
-- [ ] **Task 5.3:** Viết hướng dẫn sử dụng chi tiết trong `README.md` gốc của dự án.
-- [ ] **Task 5.4:** Git commit toàn bộ mã nguồn và hướng dẫn cách đẩy lên GitHub.
+- [x] **Task 5.1:** Thực hiện chạy kiểm thử toàn trình từ UI với profile **`06`**.
+- [x] **Task 5.2:** Kiểm tra gói kết quả sinh ra trong `runs/`: file gốc `raw/`, file sạch `data/`, ảnh `evidence/`, báo cáo `README.md`.
+- [x] **Task 5.3:** Viết hướng dẫn sử dụng chi tiết trong `README.md` gốc của dự án.
+- [x] **Task 5.4:** Git commit toàn bộ mã nguồn và đẩy lên GitHub repository.

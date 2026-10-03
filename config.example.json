@@ -3,7 +3,7 @@
     "api_base_url": "http://127.0.0.1:19996",
     "app_path": "D:\\GPMLogin\\GPMLoginGlobal",
     "profiles_path": "D:\\GPMLogin\\Profile_Chrome_GPM",
-    "timeout_seconds": 30
+    "timeout_seconds": 60
   },
   "storage": {
     "runs_dir": "runs",

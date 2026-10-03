@@ -4,6 +4,7 @@ import logging
 import re
 import time
 import zipfile
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from datetime import datetime
 from typing import Optional, List, Tuple, Dict, Any
 from pathlib import Path
@@ -31,7 +32,7 @@ class StudioAnalyticsPage:
     4. Điều hướng tới trang "Số liệu phân tích" (Analytics).
     """
 
-    def __init__(self, page: Page, timeout_seconds: float = 30.0):
+    def __init__(self, page: Page, timeout_seconds: float = 60.0):
         self.page = page
         self.timeout_ms = int(timeout_seconds * 1000)
         self.timeout_seconds = timeout_seconds
@@ -124,15 +125,16 @@ class StudioAnalyticsPage:
         except Exception:
             pass
 
-    def _extract_channel_identity(self, max_wait_seconds: float = 15.0) -> ChannelIdentity:
+    def _extract_channel_identity(self, max_wait_seconds: Optional[float] = None) -> ChannelIdentity:
         """
         Trích xuất Channel ID và Channel Name từ trang YouTube Studio.
         """
+        wait_limit = max_wait_seconds if max_wait_seconds is not None else max(15.0, self.timeout_seconds * 0.5)
         start_time = time.time()
         channel_id = None
         channel_name = None
 
-        while time.time() - start_time < max_wait_seconds:
+        while time.time() - start_time < wait_limit:
             # 1. Trích xuất Channel ID
             # Cách 1: ytcfg trong ngữ cảnh JS của YouTube Studio (chính xác tuyệt đối 100%)
             try:
@@ -240,6 +242,12 @@ class StudioAnalyticsPage:
         logger.info(f"Đang điều hướng tới trang Analytics: {analytics_url}...")
 
         try:
+            # Đảm bảo viewport ảo 1920x1080 để YouTube Studio không co rút giao diện
+            try:
+                self.page.set_viewport_size({"width": 1920, "height": 1080})
+            except Exception:
+                pass
+
             # 1. Điều hướng trực tiếp bằng URL kênh
             self.page.goto(
                 analytics_url,
@@ -259,10 +267,11 @@ class StudioAnalyticsPage:
             # Thử phương án dự phòng: Click vào menu Analytics trong Sidebar
             return self._click_analytics_menu_item()
 
-    def _wait_for_analytics_loaded(self, timeout_seconds: float = 15.0):
+    def _wait_for_analytics_loaded(self, timeout_seconds: Optional[float] = None):
         """Chờ các thành phần cốt lõi của trang Analytics xuất hiện."""
+        wait_limit = timeout_seconds if timeout_seconds is not None else max(15.0, self.timeout_seconds * 0.5)
         start_time = time.time()
-        while time.time() - start_time < timeout_seconds:
+        while time.time() - start_time < wait_limit:
             # Kiểm tra URL
             if "/analytics" in self.page.url:
                 # Kiểm tra tabs phân tích xuất hiện
@@ -279,7 +288,7 @@ class StudioAnalyticsPage:
             return
 
         raise StudioNavigationError(
-            f"Trang Số liệu phân tích (Analytics) không tải được trong {timeout_seconds} giây. URL hiện tại: {self.page.url}"
+            f"Trang Số liệu phân tích (Analytics) không tải được trong {wait_limit:.0f} giây. URL hiện tại: {self.page.url}"
         )
 
     def _click_analytics_menu_item(self) -> bool:
@@ -332,10 +341,25 @@ class StudioAnalyticsPage:
         except Exception:
             return False
 
-    def capture_screenshot(self, destination_path: Path) -> Path:
-        """Chụp ảnh màn hình lưu làm bằng chứng kiểm thử/đối chiếu."""
+    def capture_screenshot(
+        self, destination_path: Path, width: int = 1920, height: int = 1080
+    ) -> Path:
+        """
+        Chụp ảnh màn hình lưu làm bằng chứng kiểm thử/đối chiếu.
+        Tự động thiết lập kích thước viewport ảo (mặc định 1920x1080)
+        để bảo đảm các bảng dữ liệu Studio (đặc biệt là bảng nâng cao /explore)
+        và biểu đồ hiển thị đầy đủ tất cả các cột, các dòng mà không bị cắt xén,
+        ngay cả khi cửa sổ trình duyệt Chromium trên desktop không được phóng to tối đa.
+        """
         destination_path = Path(destination_path)
         destination_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            self.page.set_viewport_size({"width": width, "height": height})
+            time.sleep(0.5)
+        except Exception as e:
+            logger.debug(f"Không thể đặt viewport ảo {width}x{height}: {e}")
+
         self.page.screenshot(path=str(destination_path), full_page=False)
         return destination_path
 
@@ -343,7 +367,7 @@ class StudioAnalyticsPage:
     # Task 2.3: Bộ chọn khoảng thời gian, Chế độ nâng cao & Xuất báo cáo Studio
     # =========================================================================
 
-    def select_date_range(self, preset: str = "28_days", timeout_seconds: float = 10.0) -> bool:
+    def select_date_range(self, preset: str = "28_days", timeout_seconds: Optional[float] = None) -> bool:
         """
         Chọn khoảng thời gian phân tích số liệu trên YouTube Studio tiếng Việt.
         
@@ -358,6 +382,7 @@ class StudioAnalyticsPage:
             preset: Mã khoảng thời gian cần chọn.
             timeout_seconds: Thời gian chờ tối đa.
         """
+        wait_timeout = timeout_seconds if timeout_seconds is not None else max(10.0, self.timeout_seconds * 0.3)
         preset_map = {
             "28_days": "28 ngày qua",
             "28d": "28 ngày qua",
@@ -393,7 +418,7 @@ class StudioAnalyticsPage:
                     f'tp-yt-paper-item:has-text("{target_label}"), '
                     f'[role="menuitem"]:has-text("{target_label}")'
                 )
-                self.page.wait_for_selector(item_selector, timeout=int(timeout_seconds * 1000))
+                self.page.wait_for_selector(item_selector, timeout=int(wait_timeout * 1000))
                 self.page.click(item_selector)
                 logger.info(f"Đã chọn khoảng thời gian: '{target_label}'. Đang chờ trang cập nhật...")
 
@@ -412,12 +437,13 @@ class StudioAnalyticsPage:
 
         return False
 
-    def open_advanced_mode(self, timeout_seconds: float = 20.0) -> bool:
+    def open_advanced_mode(self, timeout_seconds: Optional[float] = None) -> bool:
         """
         Mở 'Chế độ xem nâng cao' (Advanced Mode) trong YouTube Studio Analytics.
         
         Bao gồm cơ chế click nút UI và phương án dự phòng điều hướng URL trực tiếp.
         """
+        wait_timeout = timeout_seconds if timeout_seconds is not None else max(20.0, self.timeout_seconds * 0.5)
         logger.info("Đang mở 'Chế độ xem nâng cao' (Advanced Mode)...")
 
         # Kiểm tra nếu đã ở trong Chế độ nâng cao
@@ -445,18 +471,19 @@ class StudioAnalyticsPage:
                 '[aria-label*="Advanced"]',
                 'a[href*="/explore"]',
             ]
+            click_timeout_ms = max(3000, int(self.timeout_ms * 0.1))
             for sel in adv_selectors:
                 btn = self.page.query_selector(sel)
                 if btn and btn.is_visible():
-                    btn.click(timeout=3000)
+                    btn.click(timeout=click_timeout_ms)
                     break
             else:
-                self.page.click('#advanced-analytics, [aria-label*="nâng cao"]', timeout=3000)
+                self.page.click('#advanced-analytics, [aria-label*="nâng cao"]', timeout=click_timeout_ms)
 
             # Chờ nút Xuất hoặc trang Explore xuất hiện
             self.page.wait_for_selector(
                 '#export-button, [aria-label*="Xuất"], [aria-label*="Export"], yta-explore-page',
-                timeout=10000,
+                timeout=int(wait_timeout * 1000),
             )
             time.sleep(1.5)
             logger.info("Mở Chế độ xem nâng cao thành công qua click nút UI.")
@@ -484,7 +511,7 @@ class StudioAnalyticsPage:
             self.page.goto(direct_explore_url, wait_until="domcontentloaded", timeout=self.timeout_ms)
             self.page.wait_for_selector(
                 '#export-button, [aria-label*="Xuất"], [aria-label*="Export"], yta-explore-page',
-                timeout=int(timeout_seconds * 1000),
+                timeout=int(wait_timeout * 1000),
             )
             time.sleep(1.5)
             logger.info("Mở Chế độ xem nâng cao thành công qua URL explore.")
@@ -498,7 +525,7 @@ class StudioAnalyticsPage:
     def export_report(
         self,
         destination_dir: Path,
-        timeout_seconds: float = 30.0,
+        timeout_seconds: Optional[float] = None,
         extract_zip: bool = True,
     ) -> Path:
         """
@@ -517,13 +544,15 @@ class StudioAnalyticsPage:
         """
         dest_path = Path(destination_dir)
         dest_path.mkdir(parents=True, exist_ok=True)
+        wait_download = timeout_seconds if timeout_seconds is not None else self.timeout_seconds
 
         logger.info(f"Đang chuẩn bị xuất báo cáo vào: {dest_path}...")
 
         # 1. Tìm và click nút Xuất
         export_btn_selector = '#export-button, [aria-label*="Xuất"], [aria-label*="Export"]'
+        export_wait_ms = max(10000, int(self.timeout_ms * 0.3))
         try:
-            self.page.wait_for_selector(export_btn_selector, timeout=10000)
+            self.page.wait_for_selector(export_btn_selector, timeout=export_wait_ms)
             self.page.click(export_btn_selector)
             time.sleep(1.0)
         except Exception as e:
@@ -537,15 +566,16 @@ class StudioAnalyticsPage:
             '[role="menuitem"]:has-text("Excel")'
         )
 
+        option_wait_ms = max(6000, int(self.timeout_ms * 0.2))
         try:
-            self.page.wait_for_selector(option_selector, timeout=5000)
+            self.page.wait_for_selector(option_selector, timeout=option_wait_ms)
         except Exception as e:
             raise ReportExportError(f"Menu tùy chọn xuất không xuất hiện sau khi click nút Xuất: {e}") from e
 
         # 3. Lắng nghe sự kiện download và click vào tùy chọn xuất
-        logger.info("Đang kích hoạt tải file và bắt sự kiện download...")
+        logger.info(f"Đang kích hoạt tải file và bắt sự kiện download (timeout {wait_download:.0f}s)...")
         try:
-            with self.page.expect_download(timeout=int(timeout_seconds * 1000)) as download_info:
+            with self.page.expect_download(timeout=int(wait_download * 1000)) as download_info:
                 self.page.click(option_selector)
 
             download = download_info.value
@@ -578,6 +608,7 @@ class StudioAnalyticsPage:
         self,
         run_storage: RunDirectory,
         date_preset: str = "28_days",
+        collection_depth: str = "standard",
     ) -> StudioExportResult:
         """
         Quy trình trọn vẹn của Task 2.3:
@@ -598,7 +629,10 @@ class StudioAnalyticsPage:
             self.navigate_to_analytics()
 
         # 2. Chọn khoảng thời gian
-        self.select_date_range(preset=date_preset)
+        if not self.select_date_range(preset=date_preset):
+            if date_preset != "28_days":
+                raise ReportExportError(f"Không xác nhận được khoảng thời gian {date_preset} trong Studio")
+            logger.warning("Không thấy bộ chọn ngày trên trang tổng quan; dùng kỳ mặc định và kiểm tra ngày trong file xuất")
 
         # 3. Chụp ảnh biểu đồ tổng quan đối chiếu
         overview_evidence_path = run_storage.evidence_dir / "analytics_overview.png"
@@ -608,13 +642,85 @@ class StudioAnalyticsPage:
         # 4. Mở Chế độ xem nâng cao
         self.open_advanced_mode()
 
+        # Studio không thêm AVD vào bảng mặc định. Mã chỉ số này được xác nhận
+        # trực tiếp từ bộ chọn chỉ số của Studio và từ CSV xuất thực tế.
+        parts = urlsplit(self.page.url)
+        query = parse_qsl(parts.query, keep_blank_values=True)
+        if date_preset == "28_days" and ("time_period", "4_weeks") not in query:
+            query = [(key, value) for key, value in query if key != "time_period"]
+            query.append(("time_period", "4_weeks"))
+        if ("t_metrics", "AVERAGE_WATCH_TIME") not in query:
+            query.append(("t_metrics", "AVERAGE_WATCH_TIME"))
+        improved_url = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+        if improved_url != self.page.url:
+            self.page.goto(improved_url, wait_until="domcontentloaded", timeout=self.timeout_ms)
+            self.page.locator("yta-explore-page").get_by_text("Tổng", exact=True).first.wait_for(timeout=self.timeout_ms)
+
         # 5. Chụp ảnh Chế độ xem nâng cao
         adv_evidence_path = run_storage.evidence_dir / "advanced_table.png"
         self.capture_screenshot(adv_evidence_path)
         logger.info(f"Đã chụp ảnh Chế độ xem nâng cao: {adv_evidence_path}")
 
         # 6. Bắt sự kiện tải file và lưu nguyên vẹn vào raw/
-        raw_file = self.export_report(destination_dir=run_storage.raw_dir)
+        raw_file = self.export_report(destination_dir=run_storage.raw_dir, timeout_seconds=self.timeout_seconds)
+
+        extra_exports = {}
+        if collection_depth in ("standard", "full"):
+            from ytb_gpm_collector.integrations.exports.readers import read_export_bundle
+
+            primary = read_export_bundle(raw_file)
+            explore_url = self.page.url
+
+            def explore_with(**changes):
+                parts = urlsplit(explore_url)
+                # Giữ các tham số lặp như t_metrics; dict sẽ làm rơi hầu hết cột.
+                query = [(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True) if key not in changes]
+                query.extend(changes.items())
+                return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+            def collect_extra(name, url, folder, kind):
+                try:
+                    self.page.goto(url, wait_until="domcontentloaded", timeout=self.timeout_ms)
+                    self.page.wait_for_selector('#export-button, [aria-label*="Xuất"], [aria-label*="Export"]', timeout=self.timeout_ms)
+                    # Nút xuất xuất hiện trước khi bảng dữ liệu mới tải xong.
+                    self.page.locator("yta-explore-page").get_by_text("Tổng", exact=True).first.wait_for(timeout=self.timeout_ms)
+                    self.page.wait_for_timeout(1000)
+                    path = self.export_report(destination_dir=folder, timeout_seconds=self.timeout_seconds)
+                    parsed = read_export_bundle(path)
+                    if kind == "traffic":
+                        if not parsed.table_data or "traffic_source" not in parsed.table_data.column_mapping.values():
+                            raise ReportExportError("File xuất không chứa cột nguồn lưu lượng truy cập")
+                    elif not (parsed.daily_totals_data or parsed.daily_chart_data):
+                        raise ReportExportError("File xuất không chứa chuỗi ngày của video")
+                    extra_exports[name] = {"status": "exported", "path": path.relative_to(run_storage.run_dir).as_posix()}
+                except Exception as exc:
+                    logger.warning("Không xuất được báo cáo %s: %s", name, exc)
+                    extra_exports[name] = {"status": "failed", "reason": str(exc)}
+
+            collect_extra(
+                "traffic_sources",
+                explore_with(entity_type="CHANNEL", entity_id=self.channel_id or "", dimension="TRAFFIC_SOURCE_TYPE"),
+                run_storage.raw_dir / "traffic_sources",
+                "traffic",
+            )
+
+            chart_ids = {row.video_id for row in primary.daily_chart_data if row.video_id}
+            video_ids = [row.video_id for row in primary.table_data.video_rows] if primary.table_data else []
+            for video_id in video_ids:
+                collect_extra(
+                    f"traffic_{video_id}",
+                    explore_with(entity_type="VIDEO", entity_id=video_id, dimension="TRAFFIC_SOURCE_TYPE"),
+                    run_storage.raw_dir / "video_traffic" / video_id,
+                    "traffic",
+                )
+                if video_id in chart_ids:
+                    continue
+                collect_extra(
+                    f"daily_{video_id}",
+                    explore_with(entity_type="VIDEO", entity_id=video_id, dimension="DAY", granularity="DAY"),
+                    run_storage.raw_dir / "video_daily" / video_id,
+                    "daily",
+                )
 
         # 7. Cập nhật manifest.json
         manifest_data = {
@@ -623,6 +729,8 @@ class StudioAnalyticsPage:
             "channel_name": self.channel_name or "",
             "period": date_preset,
             "raw_file": str(raw_file.relative_to(run_storage.run_dir)),
+            "collection_depth": collection_depth,
+            "extra_exports": extra_exports,
             "evidence_overview": str(overview_evidence_path.relative_to(run_storage.run_dir)),
             "evidence_advanced": str(adv_evidence_path.relative_to(run_storage.run_dir)),
             "exported_at": datetime.now().isoformat(),

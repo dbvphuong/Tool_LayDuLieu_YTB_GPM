@@ -1,0 +1,15 @@
+{
+  "channel_id": "UC_DEMO",
+  "channel_name": null,
+  "period_start": "2026-09-01",
+  "period_end": "2026-09-28",
+  "period_kind": "28_days",
+  "total_views": null,
+  "total_watch_time_hours": null,
+  "total_impressions": null,
+  "average_ctr_percent": null,
+  "total_subscribers": null,
+  "video_count": 0,
+  "source_file": "raw/test.csv",
+  "normalized_at": "2026-10-03T12:00:00"
+}

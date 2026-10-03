@@ -4,7 +4,7 @@ import os
 import json
 import socket
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Union
 
 
 def is_port_open(port: int, host: str = "127.0.0.1", timeout: float = 0.3) -> bool:
@@ -87,10 +87,68 @@ def get_gpm_database_path(setting_path: Optional[Path] = None) -> Optional[Path]
 class AppConfig:
     """Cấu hình toàn cục cho ứng dụng."""
 
-    def __init__(self, api_port: Optional[int] = None):
+    def __init__(
+        self,
+        api_port: Optional[int] = None,
+        runs_dir: Optional[Union[Path, str]] = None,
+        default_concurrency: int = 2,
+        timeout_seconds: float = 60.0,
+        keep_raw_files: bool = True,
+        auto_generate_reports: bool = True,
+        gpm_install_dir: Optional[str] = None,
+    ):
         self.api_port = api_port or read_gpm_api_port_from_setting()
         self.api_base_url = f"http://127.0.0.1:{self.api_port}"
         self.db_path = get_gpm_database_path()
-        self.default_concurrency = 2
-        self.runs_dir = Path("runs")
-        self.timeout_seconds = 30.0
+        self.default_concurrency = default_concurrency
+        self.runs_dir = Path(runs_dir or "runs").resolve()
+        self.timeout_seconds = timeout_seconds
+        self.keep_raw_files = keep_raw_files
+        self.auto_generate_reports = auto_generate_reports
+        self.gpm_install_dir = gpm_install_dir or (
+            str(get_default_setting_dat_path().parent)
+            if get_default_setting_dat_path().exists()
+            else None
+        )
+
+    def to_dict(self) -> dict:
+        """Chuyển thành từ điển để lưu trữ."""
+        return {
+            "api_port": self.api_port,
+            "runs_dir": str(self.runs_dir),
+            "default_concurrency": self.default_concurrency,
+            "timeout_seconds": self.timeout_seconds,
+            "keep_raw_files": self.keep_raw_files,
+            "auto_generate_reports": self.auto_generate_reports,
+            "gpm_install_dir": self.gpm_install_dir,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "AppConfig":
+        """Tạo đối tượng từ dict."""
+        return cls(
+            api_port=data.get("api_port"),
+            runs_dir=data.get("runs_dir"),
+            default_concurrency=data.get("default_concurrency", 2),
+            timeout_seconds=data.get("timeout_seconds", 60.0),
+            keep_raw_files=data.get("keep_raw_files", True),
+            auto_generate_reports=data.get("auto_generate_reports", True),
+            gpm_install_dir=data.get("gpm_install_dir"),
+        )
+
+    def save_to_storage(self, storage) -> None:
+        """Lưu cấu hình vào LocalStorage."""
+        for key, val in self.to_dict().items():
+            storage.save_setting(f"config_{key}", val)
+
+    @classmethod
+    def load_from_storage(cls, storage) -> "AppConfig":
+        """Nạp cấu hình từ LocalStorage nếu có, nếu không lấy mặc định."""
+        defaults = cls().to_dict()
+        loaded = {}
+        for key in defaults.keys():
+            val = storage.get_setting(f"config_{key}", None)
+            if val is not None:
+                loaded[key] = val
+        merged = {**defaults, **loaded}
+        return cls.from_dict(merged)

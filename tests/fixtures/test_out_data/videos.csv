@@ -1,0 +1,2 @@
+﻿channel_id,video_id,video_title,publish_date,duration_seconds,period_start,period_end,period_kind,views,watch_time_hours,average_view_duration_seconds,impressions,ctr_percent,subscribers,estimated_revenue,status,status_reason,source_file
+UC_DEMO,vid_demo,Video Demo Tiếng Việt Có Dấu,,,2026-09-01,2026-09-28,fixed_calendar_range,500,20.5,,,,,,ok,,raw/test.csv

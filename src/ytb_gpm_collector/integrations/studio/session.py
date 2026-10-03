@@ -25,7 +25,7 @@ class StudioSession:
     def __init__(
         self,
         cdp_endpoint: Union[str, GpmStartResult],
-        timeout_seconds: float = 30.0,
+        timeout_seconds: float = 60.0,
     ):
         """
         Khởi tạo StudioSession.
@@ -33,7 +33,7 @@ class StudioSession:
         Args:
             cdp_endpoint: Chuỗi địa chỉ CDP (ví dụ "127.0.0.1:53962", "http://127.0.0.1:53962", "ws://...")
                           hoặc đối tượng GpmStartResult từ GpmClient.start_profile.
-            timeout_seconds: Thời gian chờ tối đa cho các tác vụ Playwright (mặc định 30s).
+            timeout_seconds: Thời gian chờ tối đa cho các tác vụ Playwright (mặc định 60s).
         """
         self.endpoint_url = self._normalize_endpoint(cdp_endpoint)
         self.timeout_ms = int(timeout_seconds * 1000)

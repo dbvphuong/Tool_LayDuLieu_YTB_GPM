@@ -89,6 +89,34 @@ class LocalStorage:
     # 1. Quản lý trạng thái phiên làm việc (Session State)
     # =========================================================================
 
+    def save_setting(self, key: str, value: Any) -> None:
+        """Lưu một giá trị cài đặt dạng key-value."""
+        now = datetime.now().isoformat()
+        val_str = json.dumps(value, ensure_ascii=False)
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO app_settings (key, value, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = excluded.updated_at;
+            """, (key, val_str, now))
+            conn.commit()
+
+    def get_setting(self, key: str, default: Any = None) -> Any:
+        """Lấy một giá trị cài đặt theo key."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT value FROM app_settings WHERE key = ?;", (key,))
+            row = cursor.fetchone()
+            if row:
+                try:
+                    return json.loads(row["value"])
+                except Exception:
+                    return row["value"]
+        return default
+
     def save_session_state(self, state: AppSessionState):
         """Lưu lại trạng thái lựa chọn gần nhất của người dùng."""
         now = datetime.now().isoformat()
@@ -287,3 +315,9 @@ class LocalStorage:
                     )
                 )
         return records
+
+    get_recent_runs = get_run_history
+
+
+# Semantic alias
+HistoryStorage = LocalStorage

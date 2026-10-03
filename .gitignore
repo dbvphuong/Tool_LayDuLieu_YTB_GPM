@@ -40,3 +40,7 @@ config.json
 .idea/
 *.swp
 *.swo
+
+# Scratch / Temp
+scratch/
+
