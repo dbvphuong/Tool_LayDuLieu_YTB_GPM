@@ -42,7 +42,7 @@
   - Truy cập `https://studio.youtube.com`.
   - Kiểm tra trạng thái đăng nhập và trích xuất `channel_id`, `channel_name`.
   - Điều hướng tới trang "Số liệu phân tích" (Analytics).
-- [ ] **Task 2.3:** Xây dựng module xuất báo cáo Studio tiếng Việt:
+- [x] **Task 2.3:** Xây dựng module xuất báo cáo Studio tiếng Việt:
   - Chọn khoảng thời gian (28 ngày qua).
   - Thao tác mở chế độ xem nâng cao và xuất báo cáo (Export) Excel/CSV.
   - Bắt sự kiện tải file và lưu nguyên vẹn vào thư mục `runs/<run_id>/raw/`.

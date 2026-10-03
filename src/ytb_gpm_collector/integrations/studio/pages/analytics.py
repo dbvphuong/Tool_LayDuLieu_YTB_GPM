@@ -3,15 +3,19 @@
 import logging
 import re
 import time
-from typing import Optional, List, Tuple
+import zipfile
+from datetime import datetime
+from typing import Optional, List, Tuple, Dict, Any
 from pathlib import Path
 from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError
 
-from ytb_gpm_collector.domain.models import ChannelIdentity
+from ytb_gpm_collector.domain.models import ChannelIdentity, StudioExportResult
 from ytb_gpm_collector.domain.errors import (
     StudioAuthenticationError,
     StudioNavigationError,
+    ReportExportError,
 )
+from ytb_gpm_collector.integrations.storage.runs import RunDirectory
 
 logger = logging.getLogger(__name__)
 
@@ -334,3 +338,310 @@ class StudioAnalyticsPage:
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         self.page.screenshot(path=str(destination_path), full_page=False)
         return destination_path
+
+    # =========================================================================
+    # Task 2.3: Bộ chọn khoảng thời gian, Chế độ nâng cao & Xuất báo cáo Studio
+    # =========================================================================
+
+    def select_date_range(self, preset: str = "28_days", timeout_seconds: float = 10.0) -> bool:
+        """
+        Chọn khoảng thời gian phân tích số liệu trên YouTube Studio tiếng Việt.
+        
+        Các preset hỗ trợ:
+        - '28_days' / '28d': 28 ngày qua (mặc định)
+        - '7_days' / '7d': 7 ngày qua
+        - '90_days' / '90d': 90 ngày qua
+        - '365_days' / '365d': 365 ngày qua
+        - 'all_time' / 'lifetime': Toàn thời gian
+        
+        Args:
+            preset: Mã khoảng thời gian cần chọn.
+            timeout_seconds: Thời gian chờ tối đa.
+        """
+        preset_map = {
+            "28_days": "28 ngày qua",
+            "28d": "28 ngày qua",
+            "7_days": "7 ngày qua",
+            "7d": "7 ngày qua",
+            "90_days": "90 ngày qua",
+            "90d": "90 ngày qua",
+            "365_days": "365 ngày qua",
+            "365d": "365 ngày qua",
+            "all_time": "Toàn thời gian",
+            "lifetime": "Toàn thời gian",
+        }
+        target_label = preset_map.get(preset, "28 ngày qua")
+        logger.info(f"Đang thiết lập khoảng thời gian: '{target_label}' (preset: {preset})...")
+
+        try:
+            # 1. Kiểm tra xem khoảng thời gian hiện tại đã đúng chưa
+            trigger = self.page.query_selector(
+                '#picker-trigger, yta-time-picker #picker-trigger, ytcp-text-dropdown-trigger'
+            )
+            if trigger:
+                current_text = trigger.inner_text() or ""
+                if target_label.lower() in current_text.lower():
+                    logger.info(f"Khoảng thời gian hiện tại đã là '{target_label}'. Không cần đổi.")
+                    return True
+
+                # 2. Mở dropdown bộ chọn ngày
+                trigger.click()
+                time.sleep(1.0)
+
+                # 3. Chọn item tương ứng trong menu
+                item_selector = (
+                    f'tp-yt-paper-item:has-text("{target_label}"), '
+                    f'[role="menuitem"]:has-text("{target_label}")'
+                )
+                self.page.wait_for_selector(item_selector, timeout=int(timeout_seconds * 1000))
+                self.page.click(item_selector)
+                logger.info(f"Đã chọn khoảng thời gian: '{target_label}'. Đang chờ trang cập nhật...")
+
+                # Đóng bất kỳ overlay menu còn sót lại
+                try:
+                    self.page.keyboard.press("Escape")
+                except Exception:
+                    pass
+
+                # Chờ biểu đồ và dữ liệu tải lại
+                time.sleep(2.0)
+                return True
+
+        except Exception as e:
+            logger.warning(f"Không thể chọn khoảng thời gian '{target_label}' qua UI: {e}")
+
+        return False
+
+    def open_advanced_mode(self, timeout_seconds: float = 20.0) -> bool:
+        """
+        Mở 'Chế độ xem nâng cao' (Advanced Mode) trong YouTube Studio Analytics.
+        
+        Bao gồm cơ chế click nút UI và phương án dự phòng điều hướng URL trực tiếp.
+        """
+        logger.info("Đang mở 'Chế độ xem nâng cao' (Advanced Mode)...")
+
+        # Kiểm tra nếu đã ở trong Chế độ nâng cao
+        if "/explore" in self.page.url:
+            export_btn = self.page.query_selector('#export-button, [aria-label*="Xuất"], [aria-label*="Export"]')
+            if export_btn:
+                logger.info("Đã ở sẵn trong giao diện Chế độ xem nâng cao.")
+                return True
+
+        # Đóng bất kỳ overlay popup nào còn sót lại
+        try:
+            self.page.keyboard.press("Escape")
+            time.sleep(0.3)
+        except Exception:
+            pass
+
+        # Phương án 1: Click nút "Chế độ nâng cao" trên giao diện
+        try:
+            adv_selectors = [
+                '#advanced-analytics',
+                'button[aria-label*="nâng cao"]',
+                'button:has-text("Chế độ nâng cao")',
+                'a:has-text("Chế độ nâng cao")',
+                'ytcp-button:has-text("Chế độ nâng cao")',
+                '[aria-label*="Advanced"]',
+                'a[href*="/explore"]',
+            ]
+            for sel in adv_selectors:
+                btn = self.page.query_selector(sel)
+                if btn and btn.is_visible():
+                    btn.click(timeout=3000)
+                    break
+            else:
+                self.page.click('#advanced-analytics, [aria-label*="nâng cao"]', timeout=3000)
+
+            # Chờ nút Xuất hoặc trang Explore xuất hiện
+            self.page.wait_for_selector(
+                '#export-button, [aria-label*="Xuất"], [aria-label*="Export"], yta-explore-page',
+                timeout=10000,
+            )
+            time.sleep(1.5)
+            logger.info("Mở Chế độ xem nâng cao thành công qua click nút UI.")
+            return True
+
+        except Exception as e:
+            logger.warning(f"Click nút Chế độ nâng cao thất bại ({e}). Thử điều hướng URL explore trực tiếp...")
+
+        # Phương án 2 (Dự phòng vững chắc): Điều hướng trực tiếp URL explore
+        try:
+            target_id = self.channel_id
+            if not target_id:
+                identity = self.navigate_to_studio()
+                target_id = identity.channel_id
+
+            direct_explore_url = (
+                f"https://studio.youtube.com/channel/{target_id}/analytics/tab-overview/period-default/explore"
+                f"?entity_type=CHANNEL&entity_id={target_id}&time_period=4_weeks"
+                f"&explore_type=TABLE_AND_CHART&metric=EXTERNAL_VIEWS&granularity=DAY"
+                f"&t_metrics=EXTERNAL_VIEWS&t_metrics=EXTERNAL_WATCH_TIME"
+                f"&t_metrics=SUBSCRIBERS_NET_CHANGE&t_metrics=TOTAL_ESTIMATED_EARNINGS"
+                f"&t_metrics=VIDEO_THUMBNAIL_IMPRESSIONS&t_metrics=VIDEO_THUMBNAIL_IMPRESSIONS_VTR"
+                f"&dimension=VIDEO&o_column=EXTERNAL_VIEWS&o_direction=ANALYTICS_ORDER_DIRECTION_DESC"
+            )
+            self.page.goto(direct_explore_url, wait_until="domcontentloaded", timeout=self.timeout_ms)
+            self.page.wait_for_selector(
+                '#export-button, [aria-label*="Xuất"], [aria-label*="Export"], yta-explore-page',
+                timeout=int(timeout_seconds * 1000),
+            )
+            time.sleep(1.5)
+            logger.info("Mở Chế độ xem nâng cao thành công qua URL explore.")
+            return True
+
+        except Exception as e:
+            raise ReportExportError(
+                f"Không thể mở Chế độ xem nâng cao trong YouTube Studio sau cả 2 phương án: {e}"
+            ) from e
+
+    def export_report(
+        self,
+        destination_dir: Path,
+        timeout_seconds: float = 30.0,
+        extract_zip: bool = True,
+    ) -> Path:
+        """
+        Thao tác bấm nút Xuất báo cáo (Export) và bắt sự kiện tải file nguyên vẹn vào destination_dir.
+        
+        Args:
+            destination_dir: Thư mục lưu file gốc (ví dụ: runs/<run_id>/raw/).
+            timeout_seconds: Thời gian chờ tải file tối đa.
+            extract_zip: Nếu file tải về là .zip, tự động giải nén các file .csv kèm theo để sẵn sàng cho Phase 3.
+            
+        Returns:
+            Path: Đường dẫn tới file tải về nguyên vẹn trong destination_dir.
+            
+        Raises:
+            ReportExportError: Nếu không tìm thấy nút xuất hoặc tải file thất bại.
+        """
+        dest_path = Path(destination_dir)
+        dest_path.mkdir(parents=True, exist_ok=True)
+
+        logger.info(f"Đang chuẩn bị xuất báo cáo vào: {dest_path}...")
+
+        # 1. Tìm và click nút Xuất
+        export_btn_selector = '#export-button, [aria-label*="Xuất"], [aria-label*="Export"]'
+        try:
+            self.page.wait_for_selector(export_btn_selector, timeout=10000)
+            self.page.click(export_btn_selector)
+            time.sleep(1.0)
+        except Exception as e:
+            raise ReportExportError(f"Không thể tìm thấy hoặc click nút Xuất báo cáo: {e}") from e
+
+        # 2. Lựa chọn định dạng xuất (.csv hoặc Excel)
+        option_selector = (
+            'tp-yt-paper-item:has-text(".csv"), '
+            '[role="menuitem"]:has-text(".csv"), '
+            'tp-yt-paper-item:has-text("Excel"), '
+            '[role="menuitem"]:has-text("Excel")'
+        )
+
+        try:
+            self.page.wait_for_selector(option_selector, timeout=5000)
+        except Exception as e:
+            raise ReportExportError(f"Menu tùy chọn xuất không xuất hiện sau khi click nút Xuất: {e}") from e
+
+        # 3. Lắng nghe sự kiện download và click vào tùy chọn xuất
+        logger.info("Đang kích hoạt tải file và bắt sự kiện download...")
+        try:
+            with self.page.expect_download(timeout=int(timeout_seconds * 1000)) as download_info:
+                self.page.click(option_selector)
+
+            download = download_info.value
+            suggested_name = download.suggested_filename
+            saved_file = dest_path / suggested_name
+
+            # Lưu nguyên vẹn file tải về
+            download.save_as(str(saved_file))
+            file_size = saved_file.stat().st_size
+            logger.info(
+                f"Đã bắt và lưu nguyên vẹn file xuất: '{saved_file.name}' "
+                f"({file_size:,} bytes) tại {saved_file}"
+            )
+
+            # 4. Nếu là file zip, giải nén các file CSV bên trong
+            if extract_zip and saved_file.suffix.lower() == ".zip":
+                try:
+                    with zipfile.ZipFile(saved_file, "r") as zf:
+                        zf.extractall(dest_path)
+                    logger.info(f"Đã giải nén các file báo cáo CSV vào {dest_path} cho Phase 3.")
+                except Exception as ze:
+                    logger.warning(f"Lưu ý: Không thể giải nén zip ({ze}), nhưng file gốc .zip vẫn an toàn.")
+
+            return saved_file
+
+        except Exception as e:
+            raise ReportExportError(f"Lỗi trong quá trình bắt sự kiện tải file báo cáo: {e}") from e
+
+    def export_channel_analytics(
+        self,
+        run_storage: RunDirectory,
+        date_preset: str = "28_days",
+    ) -> StudioExportResult:
+        """
+        Quy trình trọn vẹn của Task 2.3:
+        1. Điều hướng tới trang Số liệu phân tích (Analytics).
+        2. Chọn khoảng thời gian (mặc định 28 ngày qua).
+        3. Chụp ảnh biểu đồ tổng quan đối chiếu lưu vào runs/<run_id>/evidence/.
+        4. Mở Chế độ xem nâng cao (Advanced Mode).
+        5. Chụp ảnh bảng Chế độ nâng cao làm bằng chứng đối chiếu.
+        6. Bấm nút Xuất và lưu nguyên vẹn file vào runs/<run_id>/raw/.
+        7. Cập nhật manifest.json và trả về StudioExportResult.
+        """
+        logger.info(
+            f"=== Bắt đầu quy trình xuất báo cáo cho kênh '{self.channel_name}' (Run ID: {run_storage.run_id}) ==="
+        )
+
+        # 1. Đảm bảo đã ở trong trang Analytics
+        if "/analytics" not in self.page.url:
+            self.navigate_to_analytics()
+
+        # 2. Chọn khoảng thời gian
+        self.select_date_range(preset=date_preset)
+
+        # 3. Chụp ảnh biểu đồ tổng quan đối chiếu
+        overview_evidence_path = run_storage.evidence_dir / "analytics_overview.png"
+        self.capture_screenshot(overview_evidence_path)
+        logger.info(f"Đã chụp ảnh biểu đồ tổng quan: {overview_evidence_path}")
+
+        # 4. Mở Chế độ xem nâng cao
+        self.open_advanced_mode()
+
+        # 5. Chụp ảnh Chế độ xem nâng cao
+        adv_evidence_path = run_storage.evidence_dir / "advanced_table.png"
+        self.capture_screenshot(adv_evidence_path)
+        logger.info(f"Đã chụp ảnh Chế độ xem nâng cao: {adv_evidence_path}")
+
+        # 6. Bắt sự kiện tải file và lưu nguyên vẹn vào raw/
+        raw_file = self.export_report(destination_dir=run_storage.raw_dir)
+
+        # 7. Cập nhật manifest.json
+        manifest_data = {
+            "run_id": run_storage.run_id,
+            "channel_id": self.channel_id or "",
+            "channel_name": self.channel_name or "",
+            "period": date_preset,
+            "raw_file": str(raw_file.relative_to(run_storage.run_dir)),
+            "evidence_overview": str(overview_evidence_path.relative_to(run_storage.run_dir)),
+            "evidence_advanced": str(adv_evidence_path.relative_to(run_storage.run_dir)),
+            "exported_at": datetime.now().isoformat(),
+            "status": "exported",
+            "schema_version": "1.0",
+        }
+        run_storage.save_manifest(manifest_data)
+
+        export_res = StudioExportResult(
+            success=True,
+            channel_id=self.channel_id or "",
+            channel_name=self.channel_name or "",
+            date_preset=date_preset,
+            raw_file_path=str(raw_file),
+            evidence_image_path=str(overview_evidence_path),
+            file_size_bytes=raw_file.stat().st_size,
+            exported_at=manifest_data["exported_at"],
+            message=f"Đã xuất báo cáo và chụp ảnh bằng chứng thành công vào {run_storage.run_dir}",
+        )
+
+        logger.info(f"=== Hoàn tất xuất báo cáo thành công [OK]: {export_res.message} ===")
+        return export_res

@@ -235,6 +235,8 @@ class LocalStorage:
             ))
             conn.commit()
 
+    save_run_record = add_run_history
+
     def update_run_history(
         self,
         run_id: str,

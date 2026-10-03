@@ -76,3 +76,17 @@ class RunHistoryRecord(BaseModel):
     started_at: str
     finished_at: Optional[str] = None
     error_message: Optional[str] = None
+
+
+class StudioExportResult(BaseModel):
+    """Kết quả một lần xuất báo cáo từ YouTube Studio."""
+    success: bool
+    channel_id: str
+    channel_name: str
+    date_preset: str = "28_days"
+    raw_file_path: str
+    evidence_image_path: Optional[str] = None
+    file_size_bytes: int = 0
+    exported_at: str
+    message: Optional[str] = None
+
