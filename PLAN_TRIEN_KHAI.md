@@ -69,7 +69,8 @@
 - [ ] **Task 4.2:** Xây dựng **Tab 1: Thu thập dữ liệu**:
   - Dropdown chọn profile GPM (kèm thông tin proxy).
   - Nút "Bật Profile" / "Kiểm tra Studio".
-  - Lựa chọn kênh, video, khoảng ngày (28 ngày).
+  - Lựa chọn video: Theo số lượng gần nhất (5, 10, 20...) HOẶC theo khoảng ngày đăng, hoặc toàn bộ video.
+  - Lựa chọn khung thời gian phân tích số liệu (28 ngày qua, 90 ngày...).
   - Nút bấm to nổi bật **[ BẮT ĐẦU THU THẬP ]**.
   - Thanh tiến trình (Progress Bar) và dòng trạng thái.
 - [ ] **Task 4.3:** Xây dựng **Tab 2: Lịch sử & Kết quả**:

@@ -48,11 +48,13 @@
 |  [+] Thu thập     |   +----------------------------------------------------------------------------------------------+  |
 |      (Active)     |                                                                                                     |
 |                   |   +-- 2. CẤU HÌNH DỮ LIỆU CẦN LẤY ---------------------------------------------------------------+  |
-|  [*] Lịch sử      |   | Kênh:      [ UCxxxxxxxxxxxxxxxxxxxxxx - Tên Kênh Đã Nhận Diện                  ]             |  |
-|                   |   | Video:     (o) Toàn bộ video dài đã xuất bản    ( ) Chọn video cụ thể... [ Danh sách (0) ]   |  |
-|  [#] Nhật ký Logs |   | Thời gian: [ 28 ngày qua                                                [v] ]             |  |
-|                   |   | Mức cào:   ( ) Nhanh (Tổng quan)    (o) Tiêu chuẩn (Reach + Traffic)    ( ) Đầy đủ           |  |
-|  [o] Cài đặt      |   +----------------------------------------------------------------------------------------------+  |
+|  [*] Lịch sử      |   | Kênh:        [ UCxxxxxxxxxxxxxxxxxxxxxx - Tên Kênh Đã Nhận Diện                ]             |  |
+|                   |   | Chọn video:  (o) Theo số lượng gần nhất: [ 10 ] video mới nhất (hoặc chọn 5, 20, 50)         |  |
+|  [#] Nhật ký Logs |   |              ( ) Theo thời gian đăng:    [ 28 ngày qua              [v] ]                    |  |
+|                   |   |              ( ) Toàn bộ video trên kênh ( ) Chọn thủ công cụ thể... [ Danh sách (0) ]       |  |
+|  [o] Cài đặt      |   | Khung ngày:  Phân tích số liệu trong:    [ 28 ngày qua              [v] ]                    |  |
+|                   |   | Mức cào:     ( ) Nhanh (Tổng quan)       (o) Tiêu chuẩn (Reach + Traffic)   ( ) Đầy đủ       |  |
+|                   |   +----------------------------------------------------------------------------------------------+  |
 |                   |                                                                                                     |
 |                   |   +-- 3. ĐIỀU KHIỂN & TIẾN TRÌNH ----------------------------------------------------------------+  |
 |                   |   |  [ >>> BẮT ĐẦU THU THẬP <<< ]      [ || Tạm dừng ]      [ [] Mở thư mục kết quả ]            |  |
@@ -75,10 +77,16 @@
   * Dropdown chọn Profile kèm thông tin proxy hiện tại của profile đó để người dùng an tâm.
   * Nút "Làm mới danh sách" để tự động tải lại nếu người dùng vừa tạo thêm profile trong GPM.
   * Nút "Bật Profile": Gọi API GPM mở cửa sổ Chromium đúng proxy.
-* **Khối 2: Cấu hình Thu thập**
+* **Khối 2: Cấu hình Thu thập (Linh hoạt chọn theo Số lượng hoặc Thời gian)**
   * Tự động lấy tên kênh và `channel_id` khi kiểm tra Studio.
-  * Tùy chọn video: Mặc định lấy toàn bộ video dài, hoặc bấm mở cửa sổ tích chọn video theo ý muốn.
-  * Tùy chọn thời gian: "28 ngày qua" (mặc định), "90 ngày qua", "365 ngày qua", "Toàn thời gian".
+  * **Cách chọn danh sách video cần cào:**
+    * **Chế độ 1: Theo số lượng video gần nhất (Mặc định):** Cho phép nhập số lượng tùy ý hoặc bấm chọn nhanh `5`, `10`, `20`, `50` video mới xuất bản gần đây nhất.
+    * **Chế độ 2: Theo thời gian đăng video:** Chọn các video được xuất bản trong *7 ngày qua*, *28 ngày qua*, *90 ngày qua*, hoặc tùy chỉnh ngày bắt đầu/kết thúc.
+    * **Chế độ 3: Toàn bộ video** trên kênh.
+    * **Chế độ 4: Tự chọn thủ công** từng video trong bảng danh sách.
+  * **Khung thời gian phân tích số liệu (Analytics Date Range):**
+    * Chọn cửa sổ ngày cần lấy số liệu trong YouTube Studio: *28 ngày qua* (mặc định), *90 ngày qua*, *365 ngày qua*, hoặc *Toàn thời gian (Lifetime)*.
+  * **Mức độ thu thập:** *Nhanh* / *Tiêu chuẩn* / *Đầy đủ*.
 * **Khối 3: Bảng điều khiển hành động**
   * Nút to nhất: "BẮT ĐẦU THU THẬP" (Primary Blue). Khi đang chạy, nút chuyển thành trạng thái "Đang thu thập...".
   * Progress Bar có hiển thị % và số video đã xử lý (ví dụ: `3/8 video`).

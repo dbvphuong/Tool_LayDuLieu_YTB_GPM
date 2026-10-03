@@ -73,10 +73,14 @@ Giao diện không mở cửa sổ con rải rác mà gom trong 1 cửa sổ ứ
 * **Khu vực chọn Profile GPM:**
   * Dropdown danh sách profile lấy trực tiếp từ GPM (tự động load, có nút "Làm mới").
   * Nút bấm tiện ích: "Bật Profile" / "Kiểm tra Studio".
-* **Khu vực chọn Phạm vi dữ liệu:**
+* **Khu vực chọn Phạm vi dữ liệu (Linh hoạt theo Số lượng hoặc Thời gian):**
   * Chọn Kênh (tự nhận diện sau khi kết nối Studio).
-  * Chọn Video: Radio chọn *Toàn bộ video đã xuất bản* hoặc *Chọn danh sách video cụ thể*.
-  * Khoảng thời gian: Dropdown chọn *28 ngày qua*, *90 ngày qua*, *365 ngày qua*, hoặc *Tùy chỉnh ngày*.
+  * **Cách chọn danh sách video:**
+    * **Chế độ 1: Theo số lượng video gần nhất (Mặc định):** Cho phép nhập số lượng (ví dụ: 5, 10, 20, 50 video mới nhất).
+    * **Chế độ 2: Theo thời gian đăng video:** Lọc các video xuất bản trong *7 ngày qua*, *28 ngày qua*, *90 ngày qua*, hoặc tùy chỉnh ngày.
+    * **Chế độ 3: Toàn bộ video** trên kênh.
+    * **Chế độ 4: Tự chọn thủ công** trong danh sách.
+  * **Khung thời gian phân tích số liệu (Analytics Date Range):** *28 ngày qua*, *90 ngày qua*, *365 ngày qua*, hoặc *Toàn thời gian (Lifetime)*.
   * Mức thu thập: Radio chọn *Nhanh* / *Tiêu chuẩn* / *Đầy đủ*.
 * **Khu vực Nút Hành động & Tiến độ:**
   * Nút to nổi bật: **[ BẮT ĐẦU THU THẬP ]** (Màu xanh dương).
