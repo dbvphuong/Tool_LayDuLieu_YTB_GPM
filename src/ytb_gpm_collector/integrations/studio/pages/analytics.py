@@ -268,7 +268,7 @@ class StudioAnalyticsPage:
             return self._click_analytics_menu_item()
 
     def _wait_for_analytics_loaded(self, timeout_seconds: Optional[float] = None):
-        """Chờ các thành phần cốt lõi của trang Analytics xuất hiện."""
+        """Chờ các thành phần cốt lõi của trang Analytics xuất hiện và số liệu tải xong."""
         wait_limit = timeout_seconds if timeout_seconds is not None else max(15.0, self.timeout_seconds * 0.5)
         start_time = time.time()
         while time.time() - start_time < wait_limit:
@@ -279,12 +279,16 @@ class StudioAnalyticsPage:
                     "() => document.querySelectorAll('tp-yt-paper-tab, ytcp-tab, [role=\"tab\"]').length"
                 )
                 if tabs_count and tabs_count > 0:
+                    # Chờ thêm cho số liệu thực tế tải vào
+                    remaining = max(3.0, wait_limit - (time.time() - start_time))
+                    self.wait_for_overview_data_loaded(timeout_seconds=remaining)
                     return
 
             time.sleep(0.8)
 
         # Nếu hết thời gian mà URL vẫn chứa analytics thì coi như đã vào được
         if "/analytics" in self.page.url:
+            self.wait_for_overview_data_loaded(timeout_seconds=5.0)
             return
 
         raise StudioNavigationError(
@@ -341,6 +345,110 @@ class StudioAnalyticsPage:
         except Exception:
             return False
 
+    def wait_for_overview_data_loaded(self, timeout_seconds: Optional[float] = None) -> bool:
+        """
+        Chờ trang Số liệu phân tích tổng quan (Analytics Overview) tải hoàn tất toàn bộ dữ liệu:
+        - Các thẻ số liệu chính (Số lượt xem, Thời gian xem, Người đăng ký...)
+        - Biểu đồ đường SVG / Timeline
+        - Thẻ thời gian thực và danh sách video
+        - Biến mất hoàn toàn các vòng xoay loading (spinners/progressbars).
+        """
+        wait_limit = timeout_seconds if timeout_seconds is not None else max(15.0, self.timeout_seconds * 0.5)
+        logger.info("Đang chờ số liệu phân tích và biểu đồ tổng quan tải hoàn tất...")
+        start_time = time.time()
+
+        while time.time() - start_time < wait_limit:
+            try:
+                status = self.page.evaluate("""() => {
+                    // 1. Kiểm tra spinner đang xoay
+                    const activeSpinners = document.querySelectorAll(
+                        'tp-yt-paper-spinner[active], tp-yt-paper-spinner-lite[active], [role="progressbar"][aria-hidden="false"], .loading-indicator'
+                    ).length;
+
+                    // 2. Kiểm tra thẻ chỉ số đã xuất hiện
+                    const metricCards = document.querySelectorAll(
+                        'yta-key-metric-card, yta-overview-card, yta-line-chart-card, ytcp-card, .metric-card'
+                    ).length;
+
+                    // 3. Kiểm tra số liệu text thực tế (ví dụ "10,9 N", "975,0", "+28"...)
+                    const metricTexts = Array.from(document.querySelectorAll(
+                        'yta-key-metric-card, #metric-total, .metric-value, .value-label, #formatted-value, .total-value'
+                    )).map(e => (e.innerText || '').trim()).filter(t => t.length > 0);
+
+                    // 4. Kiểm tra biểu đồ đường SVG
+                    const hasChart = !!document.querySelector(
+                        'svg polyline, svg path[stroke], yta-line-chart, yta-area-chart, yta-chart'
+                    );
+
+                    // 5. Kiểm tra thẻ thời gian thực
+                    const hasRealtime = document.querySelectorAll('yta-realtime-card, yta-realtime-chart').length > 0;
+
+                    // Đã tải xong khi: không còn spinner active VÀ (có biểu đồ HOẶC có thẻ chỉ số kèm chữ số liệu HOẶC có thẻ thời gian thực)
+                    const isDataReady = (activeSpinners === 0) && (hasChart || (metricCards > 0 && metricTexts.length > 0) || hasRealtime);
+
+                    return {
+                        isDataReady,
+                        activeSpinners,
+                        metricCards,
+                        metricTextsCount: metricTexts.length,
+                        hasChart,
+                        hasRealtime
+                    };
+                }""")
+
+                if status and status.get("isDataReady"):
+                    # Chờ thêm 1.0 giây để CSS animation / hiệu ứng vẽ biểu đồ ổn định hoàn toàn
+                    time.sleep(1.0)
+                    logger.info("Số liệu phân tích và biểu đồ tổng quan đã tải xong hoàn toàn.")
+                    return True
+
+            except Exception as e:
+                logger.debug(f"Đang chờ load số liệu phân tích: {e}")
+
+            time.sleep(0.5)
+
+        logger.warning(f"Hết thời gian chờ {wait_limit:.1f}s cho số liệu tổng quan. Tiếp tục với trạng thái hiện tại.")
+        return False
+
+    def wait_for_advanced_table_loaded(self, timeout_seconds: Optional[float] = None) -> bool:
+        """
+        Chờ bảng Chế độ xem nâng cao (Advanced Mode /explore) tải xong:
+        - Nút Xuất đã hiển thị
+        - Các dòng video trong bảng đã render
+        - Không còn spinner active
+        """
+        wait_limit = timeout_seconds if timeout_seconds is not None else max(20.0, self.timeout_seconds * 0.5)
+        logger.info("Đang chờ bảng dữ liệu Chế độ nâng cao tải hoàn tất...")
+        start_time = time.time()
+
+        while time.time() - start_time < wait_limit:
+            try:
+                status = self.page.evaluate("""() => {
+                    const activeSpinners = document.querySelectorAll(
+                        'tp-yt-paper-spinner[active], tp-yt-paper-spinner-lite[active], [role="progressbar"][aria-hidden="false"]'
+                    ).length;
+                    const exportBtn = !!document.querySelector('#export-button, [aria-label*="Xuất"], [aria-label*="Export"]');
+                    const rowsCount = document.querySelectorAll('yta-table-row, [role="row"], table tbody tr').length;
+                    const hasTable = !!document.querySelector('yta-explore-table, #table-container, yta-table');
+
+                    return {
+                        isReady: (activeSpinners === 0) && exportBtn && (rowsCount > 1 || hasTable),
+                        activeSpinners,
+                        exportBtn,
+                        rowsCount
+                    };
+                }""")
+                if status and status.get("isReady"):
+                    time.sleep(1.0)
+                    logger.info("Bảng dữ liệu Chế độ nâng cao đã tải xong hoàn toàn.")
+                    return True
+            except Exception as e:
+                logger.debug(f"Đang chờ load bảng nâng cao: {e}")
+            time.sleep(0.5)
+
+        logger.warning(f"Hết thời gian chờ {wait_limit:.1f}s cho bảng nâng cao. Tiếp tục.")
+        return False
+
     def capture_screenshot(
         self, destination_path: Path, width: int = 1920, height: int = 1080
     ) -> Path:
@@ -350,6 +458,7 @@ class StudioAnalyticsPage:
         để bảo đảm các bảng dữ liệu Studio (đặc biệt là bảng nâng cao /explore)
         và biểu đồ hiển thị đầy đủ tất cả các cột, các dòng mà không bị cắt xén,
         ngay cả khi cửa sổ trình duyệt Chromium trên desktop không được phóng to tối đa.
+        Tự động đợi dữ liệu load hoàn tất trước khi chụp.
         """
         destination_path = Path(destination_path)
         destination_path.parent.mkdir(parents=True, exist_ok=True)
@@ -359,6 +468,13 @@ class StudioAnalyticsPage:
             time.sleep(0.5)
         except Exception as e:
             logger.debug(f"Không thể đặt viewport ảo {width}x{height}: {e}")
+
+        # Tự động đợi dữ liệu load hoàn tất tùy theo loại màn hình cần chụp
+        dest_name = destination_path.name.lower()
+        if "overview" in dest_name:
+            self.wait_for_overview_data_loaded(timeout_seconds=15.0)
+        elif "advanced" in dest_name or "table" in dest_name:
+            self.wait_for_advanced_table_loaded(timeout_seconds=15.0)
 
         self.page.screenshot(path=str(destination_path), full_page=False)
         return destination_path
@@ -407,6 +523,7 @@ class StudioAnalyticsPage:
                 current_text = trigger.inner_text() or ""
                 if target_label.lower() in current_text.lower():
                     logger.info(f"Khoảng thời gian hiện tại đã là '{target_label}'. Không cần đổi.")
+                    self.wait_for_overview_data_loaded(timeout_seconds=wait_timeout)
                     return True
 
                 # 2. Mở dropdown bộ chọn ngày
@@ -428,8 +545,8 @@ class StudioAnalyticsPage:
                 except Exception:
                     pass
 
-                # Chờ biểu đồ và dữ liệu tải lại
-                time.sleep(2.0)
+                # Chờ biểu đồ và dữ liệu tải lại hoàn tất
+                self.wait_for_overview_data_loaded(timeout_seconds=wait_timeout)
                 return True
 
         except Exception as e:
@@ -634,7 +751,8 @@ class StudioAnalyticsPage:
                 raise ReportExportError(f"Không xác nhận được khoảng thời gian {date_preset} trong Studio")
             logger.warning("Không thấy bộ chọn ngày trên trang tổng quan; dùng kỳ mặc định và kiểm tra ngày trong file xuất")
 
-        # 3. Chụp ảnh biểu đồ tổng quan đối chiếu
+        # 3. Chờ số liệu tổng quan tải xong hoàn toàn và chụp ảnh đối chiếu
+        self.wait_for_overview_data_loaded()
         overview_evidence_path = run_storage.evidence_dir / "analytics_overview.png"
         self.capture_screenshot(overview_evidence_path)
         logger.info(f"Đã chụp ảnh biểu đồ tổng quan: {overview_evidence_path}")

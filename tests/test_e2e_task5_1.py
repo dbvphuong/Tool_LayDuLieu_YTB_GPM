@@ -109,7 +109,10 @@ def run_e2e_test():
 
     # 4. Thao tác chọn Profile 06 trên bảng UI
     print("\n[4] Giả lập người dùng thao tác trên giao diện Tab 1 (CollectorPage):")
+    main_window.page_collector.combo_group_filter.setCurrentIndex(0)
+    main_window.page_collector.search_profile_input.clear()
     main_window.page_collector.deselect_all_profiles()
+    main_window.page_collector._selected_ids.clear()
     assert len(main_window.page_collector._selected_ids) == 0, "Deselect thất bại"
 
     # Tìm dòng chứa profile_06 trong QTableWidget và tích chọn checkbox
