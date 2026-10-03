@@ -26,7 +26,7 @@
   - Hàm `get_profiles()`: Lấy danh sách profile (ID, Tên, Proxy).
   - Hàm `start_profile(profile_id)`: Gọi API GPM để mở profile, nhận lại `remote_debugging_address` (CDP URL).
   - Hàm `close_profile(profile_id)`: Đóng profile qua API khi cần.
-- [ ] **Task 1.2:** Viết script kiểm thử độc lập (`tests/test_gpm_connection.py`):
+- [x] **Task 1.2:** Viết script kiểm thử độc lập (`tests/test_gpm_connection.py`):
   - Kiểm tra kết nối tới GPM API.
   - Mở thử nghiệm profile **`06`**.
   - Kiểm tra và in ra thông tin: Tên profile, IP/Proxy của profile, Cổng CDP.

@@ -9,7 +9,7 @@ from typing import List, Optional, Dict, Any
 from pathlib import Path
 import httpx
 
-from ytb_gpm_collector.config import read_gpm_api_port_from_setting, get_gpm_database_path
+from ytb_gpm_collector.config import read_gpm_api_port_from_setting, get_gpm_database_path, is_port_open
 from ytb_gpm_collector.domain.models import GpmProfile, GpmStartResult
 from ytb_gpm_collector.domain.errors import (
     GpmConnectionError,
@@ -36,18 +36,17 @@ class GpmClient:
 
     def is_api_port_listening(self, host: str = "127.0.0.1", timeout: float = 0.3) -> bool:
         """Kiểm tra nhanh cổng API bằng TCP socket để tránh bị treo timeout."""
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(timeout)
-                s.connect((host, self.port))
-                return True
-        except Exception:
-            return False
+        return is_port_open(self.port, host=host, timeout=timeout)
 
     def check_connection(self) -> bool:
         """Kiểm tra xem GPM Local API có đang phản hồi không."""
         if not self.is_api_port_listening():
-            return False
+            # Thử tự động chuyển sang cổng 9495 nếu đang là cổng khác
+            if self.port != 9495 and is_port_open(9495):
+                self.port = 9495
+                self.base_url = f"http://127.0.0.1:9495"
+            else:
+                return False
 
         test_endpoints = [
             f"{self.base_url}/api/v1/profiles?page=1&page_size=1",
@@ -70,7 +69,7 @@ class GpmClient:
         Ưu tiên gọi qua Local API (v1 / v3).
         Nếu API chưa khởi động hoặc chưa mở port, tự động đọc trực tiếp từ database.db của GPM.
         """
-        if self.is_api_port_listening():
+        if self.check_connection():
             try:
                 profiles = self._get_profiles_from_api()
                 if profiles:
@@ -115,14 +114,17 @@ class GpmClient:
                             p_id = item.get("id") or item.get("profile_id")
                             p_name = item.get("name") or item.get("profile_name", "Unknown")
                             raw_proxy = item.get("raw_proxy") or item.get("proxy", "")
+                            b_info = item.get("browser", {})
+                            b_type = b_info.get("name", "Chrome") if isinstance(b_info, dict) else item.get("browser_type", "Chrome")
+                            b_version = b_info.get("version") if isinstance(b_info, dict) else item.get("browser_version")
                             if p_id:
                                 results.append(
                                     GpmProfile(
                                         id=str(p_id),
                                         name=str(p_name),
                                         raw_proxy=raw_proxy or None,
-                                        browser_type=item.get("browser_type", "Chrome"),
-                                        browser_version=item.get("browser_version"),
+                                        browser_type=b_type,
+                                        browser_version=b_version,
                                         group_id=item.get("group_id"),
                                     )
                                 )
@@ -222,6 +224,9 @@ class GpmClient:
         Gọi API GPM để khởi chạy Profile.
         Nhận lại địa chỉ kết nối CDP (remote_debugging_address) và websocket_debugging_url.
         """
+        # Đảm bảo kết nối API đã sẵn sàng
+        self.check_connection()
+
         params: Dict[str, Any] = {
             "window_scale": window_scale,
         }
@@ -252,10 +257,12 @@ class GpmClient:
                         if success and isinstance(data, dict):
                             remote_addr = data.get("remote_debugging_address")
                             ws_url = data.get("websocket_debugging_url")
+                            dbg_port = data.get("remote_debugging_port")
 
-                            # Nếu chưa có remote_debugging_address nhưng có ws_url, trích xuất host:port
-                            if not remote_addr and ws_url:
-                                parts = ws_url.replace("ws://", "").split("/")
+                            if not remote_addr and dbg_port:
+                                remote_addr = f"127.0.0.1:{dbg_port}"
+                            elif not remote_addr and ws_url:
+                                parts = ws_url.replace("ws://", "").replace("localhost:", "127.0.0.1:").split("/")
                                 if parts:
                                     remote_addr = parts[0]
 
@@ -277,6 +284,7 @@ class GpmClient:
 
     def close_profile(self, profile_id: str) -> bool:
         """Gọi API GPM để đóng Profile."""
+        self.check_connection()
         endpoints = [
             f"{self.base_url}/api/v1/profiles/stop/{profile_id}",
             f"{self.base_url}/api/v3/profiles/close/{profile_id}",
