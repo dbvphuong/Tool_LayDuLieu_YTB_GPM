@@ -42,29 +42,38 @@
 |                   |                                                                                                     |
 |  [>] YTB COLLECT  |   [ Tab: THU THẬP DỮ LIỆU ]                                                                         |
 |  GPM Edition      |                                                                                                     |
-|                   |   +-- 1. CHỌN PROFILE GPM -----------------------------------------------------------------------+  |
-|  ================ |   | Profile: [ 06 - Kênh Youtube Chinh (Proxy: 103.x.x.x)                  [v] ] [ Làm mới ]  |  |
-|                   |   | Trạng thái: [● Đã kết nối API Port 19996]   [ Bật Profile ]  [ Kiểm tra YouTube Studio ]     |  |
-|  [+] Thu thập     |   +----------------------------------------------------------------------------------------------+  |
-|      (Active)     |                                                                                                     |
-|                   |   +-- 2. CẤU HÌNH DỮ LIỆU CẦN LẤY ---------------------------------------------------------------+  |
-|  [*] Lịch sử      |   | Kênh:        [ UCxxxxxxxxxxxxxxxxxxxxxx - Tên Kênh Đã Nhận Diện                ]             |  |
+|                   |   +-- 1. CHỌN PROFILE GPM (MULTI-PROFILE & ĐA LUỒNG) --------------------------------------------+  |
+|  ================ |   | [x] Chọn tất cả | Đã chọn: 3/12 profile  | Số luồng song song: [ 2 ] [ Làm mới ]                 |  |
+|                   |   | +------------------------------------------------------------------------------------------+ |  |
+|  [+] Thu thập     |   | | [x] 06 - Kênh Hướng Dẫn    | Proxy: 103.23.x.x:8080 | Đã sẵn sàng                        | |  |
+|      (Active)     |   | | [x] 01 - Kênh Tin Tức      | Proxy: 103.21.x.x:8080 | Đã sẵn sàng                        | |  |
+|                   |   | | [x] 07 - Kênh Giải Trí     | Proxy: 103.24.x.x:8080 | Đã sẵn sàng                        | |  |
+|  [*] Lịch sử      |   | | [ ] 02 - Kênh Âm Nhạc      | Proxy: 103.22.x.x:8080 | Chưa chọn                          | |  |
+|                   |   | +------------------------------------------------------------------------------------------+ |  |
+|  [#] Nhật ký Logs |   +----------------------------------------------------------------------------------------------+  |
+|                   |                                                                                                     |
+|  [o] Cài đặt      |   +-- 2. CẤU HÌNH DỮ LIỆU CẦN LẤY ---------------------------------------------------------------+  |
+|                   |   | Áp dụng:     Cho toàn bộ các profile/kênh đã chọn ở trên                                     |  |
 |                   |   | Chọn video:  (o) Theo số lượng gần nhất: [ 10 ] video mới nhất (hoặc chọn 5, 20, 50)         |  |
-|  [#] Nhật ký Logs |   |              ( ) Theo thời gian đăng:    [ 28 ngày qua              [v] ]                    |  |
-|                   |   |              ( ) Toàn bộ video trên kênh ( ) Chọn thủ công cụ thể... [ Danh sách (0) ]       |  |
-|  [o] Cài đặt      |   | Khung ngày:  Phân tích số liệu trong:    [ 28 ngày qua              [v] ]                    |  |
+|                   |   |              ( ) Theo thời gian đăng:    [ 28 ngày qua              [v] ]                    |  |
+|                   |   |              ( ) Toàn bộ video trên kênh ( ) Chọn thủ công cụ thể...                         |  |
+|                   |   | Khung ngày:  Phân tích số liệu trong:    [ 28 ngày qua              [v] ]                    |  |
 |                   |   | Mức cào:     ( ) Nhanh (Tổng quan)       (o) Tiêu chuẩn (Reach + Traffic)   ( ) Đầy đủ       |  |
 |                   |   +----------------------------------------------------------------------------------------------+  |
 |                   |                                                                                                     |
-|                   |   +-- 3. ĐIỀU KHIỂN & TIẾN TRÌNH ----------------------------------------------------------------+  |
+|                   |   +-- 3. ĐIỀU KHIỂN & TIẾN TRÌNH ĐA LUỒNG -------------------------------------------------------+  |
 |                   |   |  [ >>> BẮT ĐẦU THU THẬP <<< ]      [ || Tạm dừng ]      [ [] Mở thư mục kết quả ]            |  |
 |                   |   |                                                                                              |  |
-|                   |   |  Tiến trình: [======================================>               ] 65%                    |  |
-|                   |   |  Trạng thái: Đang tải báo cáo Nguồn truy cập cho video: "Làm thế nào để tạo skill AI..."   |  |
+|                   |   |  Tiến trình tổng: [==================>                             ] 33% (1/3 kênh hoàn tất) |  |
+|                   |   |  +-- Trạng thái các luồng đang chạy: ------------------------------------------------------+ |  |
+|                   |   |  | Luồng 1 [06 - Kênh Hướng Dẫn]: Đang xuất báo cáo Nguồn truy cập (Video 3/10)            | |  |
+|                   |   |  | Luồng 2 [01 - Kênh Tin Tức]:   Đang mở tab Analytics trang tổng quan                    | |  |
+|                   |   |  | Chờ trong hàng đợi: [07 - Kênh Giải Trí]                                                | |  |
+|                   |   |  +-----------------------------------------------------------------------------------------+ |  |
 |  ---------------- |   +----------------------------------------------------------------------------------------------+  |
 |  GPM API: 19996   |                                                                                                     |
 |  Trạng thái: OK   |   [ Xem nhanh log mới nhất: ]                                                                       |
-|  Proxy: 103.x.x.x |   | [10:25:01] [SUCCESS] Đã kết nối vào profile 06 qua CDP port 54321                            |  |
+|  Số luồng: 2      |   | [10:25:01] [SUCCESS] [Luồng 1] Đã kết nối vào profile 06 qua CDP port 54321                  |  |
 +-------------------+-----------------------------------------------------------------------------------------------------+
 ```
 
@@ -73,23 +82,28 @@
 ## 4. Chi tiết các màn hình bên phải (Content Views)
 
 ### 4.1. Màn hình 1: Thu thập dữ liệu (Collector View)
-* **Khối 1: Quản lý Profile GPM**
-  * Dropdown chọn Profile kèm thông tin proxy hiện tại của profile đó để người dùng an tâm.
-  * Nút "Làm mới danh sách" để tự động tải lại nếu người dùng vừa tạo thêm profile trong GPM.
-  * Nút "Bật Profile": Gọi API GPM mở cửa sổ Chromium đúng proxy.
-* **Khối 2: Cấu hình Thu thập (Linh hoạt chọn theo Số lượng hoặc Thời gian)**
-  * Tự động lấy tên kênh và `channel_id` khi kiểm tra Studio.
+* **Khối 1: Quản lý Profile GPM (Multi-Profile & Chạy Đa Luồng)**
+  * Bảng danh sách toàn bộ Profile lấy từ GPM:
+    * Cột Checkbox tích chọn từng profile hoặc nút **"Chọn tất cả"** / **"Bỏ chọn tất cả"**.
+    * Hiển thị rõ: Tên Profile, ID, Địa chỉ Proxy được gán, Trạng thái.
+    * Nhãn đếm: *"Đã chọn: X profile"*.
+  * **Cấu hình Số luồng chạy song song (Concurrency)**:
+    * Ô số `SpinBox`: Mặc định `2` luồng (cho phép chọn từ `1` đến `10` luồng tùy theo tài nguyên RAM/CPU và proxy của bạn).
+    * Hàng đợi tự động (Queue): Khi chạy, tool mở đồng thời tối đa `N` profile. Bất kỳ profile nào hoàn thành sẽ tự động nhường chỗ cho profile tiếp theo trong hàng đợi cho đến khi hoàn tất 100%.
+  * Nút "Làm mới danh sách" để tự động tải lại nếu vừa tạo thêm profile trong GPM.
+* **Khối 2: Cấu hình Thu thập (Áp dụng đồng loạt cho các kênh đã chọn)**
+  * Tự động nhận diện `channel_id` và tên kênh của từng profile khi vào Studio.
   * **Cách chọn danh sách video cần cào:**
     * **Chế độ 1: Theo số lượng video gần nhất (Mặc định):** Cho phép nhập số lượng tùy ý hoặc bấm chọn nhanh `5`, `10`, `20`, `50` video mới xuất bản gần đây nhất.
     * **Chế độ 2: Theo thời gian đăng video:** Chọn các video được xuất bản trong *7 ngày qua*, *28 ngày qua*, *90 ngày qua*, hoặc tùy chỉnh ngày bắt đầu/kết thúc.
     * **Chế độ 3: Toàn bộ video** trên kênh.
-    * **Chế độ 4: Tự chọn thủ công** từng video trong bảng danh sách.
   * **Khung thời gian phân tích số liệu (Analytics Date Range):**
     * Chọn cửa sổ ngày cần lấy số liệu trong YouTube Studio: *28 ngày qua* (mặc định), *90 ngày qua*, *365 ngày qua*, hoặc *Toàn thời gian (Lifetime)*.
   * **Mức độ thu thập:** *Nhanh* / *Tiêu chuẩn* / *Đầy đủ*.
-* **Khối 3: Bảng điều khiển hành động**
-  * Nút to nhất: "BẮT ĐẦU THU THẬP" (Primary Blue). Khi đang chạy, nút chuyển thành trạng thái "Đang thu thập...".
-  * Progress Bar có hiển thị % và số video đã xử lý (ví dụ: `3/8 video`).
+* **Khối 3: Bảng điều khiển hành động & Giám sát tiến độ đa luồng**
+  * Nút to nhất: "BẮT ĐẦU THU THẬP" (Primary Blue).
+  * Thanh tiến trình tổng thể (ví dụ: `1/3 kênh hoàn thành - 33%`).
+  * Khung danh sách trạng thái từng luồng (Worker Status List): Thấy rõ luồng nào đang làm gì, ở video nào, kênh nào đang chờ trong hàng đợi.
 
 ---
 

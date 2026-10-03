@@ -13,6 +13,7 @@
   "collection": {
     "default_period": "28d",
     "default_mode": "standard",
+    "max_concurrency": 2,
     "collect_revenue": false,
     "language": "vi"
   }

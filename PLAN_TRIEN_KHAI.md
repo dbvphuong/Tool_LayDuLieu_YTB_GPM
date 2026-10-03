@@ -67,12 +67,13 @@
   - Khung chính `MainWindow` gồm Sidebar bên trái (Navy Slate `#1E293B`) và `QStackedWidget` bên phải.
   - Bộ QSS (Qt Style Sheet) tối ưu màu sắc xanh dương nhẹ nhàng dịu mắt, chữ tương phản cao.
 - [ ] **Task 4.2:** Xây dựng **Tab 1: Thu thập dữ liệu**:
-  - Dropdown chọn profile GPM (kèm thông tin proxy).
-  - Nút "Bật Profile" / "Kiểm tra Studio".
+  - Bảng danh sách chọn nhiều Profile GPM (kèm proxy, checkbox chọn từng cái hoặc chọn tất cả).
+  - Cấu hình số luồng chạy song song (1 - 10 luồng, mặc định 2).
+  - Nút "Làm mới danh sách profile".
   - Lựa chọn video: Theo số lượng gần nhất (5, 10, 20...) HOẶC theo khoảng ngày đăng, hoặc toàn bộ video.
   - Lựa chọn khung thời gian phân tích số liệu (28 ngày qua, 90 ngày...).
   - Nút bấm to nổi bật **[ BẮT ĐẦU THU THẬP ]**.
-  - Thanh tiến trình (Progress Bar) và dòng trạng thái.
+  - Thanh tiến trình tổng (% hoàn thành) và bảng trạng thái các luồng đang chạy.
 - [ ] **Task 4.3:** Xây dựng **Tab 2: Lịch sử & Kết quả**:
   - Bảng danh sách các đợt chạy trong `runs/`.
   - Nút mở thư mục chứa file, nút xem nhanh README tóm tắt.
@@ -80,9 +81,10 @@
   - Khung hiển thị log real-time màu sắc trực quan (INFO, SUCCESS, WARNING, ERROR).
   - Nút "Sao chép toàn bộ log", nút "Xóa log".
 - [ ] **Task 4.5:** Xây dựng **Tab 4: Cài đặt (Settings)**:
-  - Form cấu hình cổng GPM API (`19996`), thư mục lưu kết quả, timeout.
-- [ ] **Task 4.6:** Đấu nối Worker Thread (`QThread`):
-  - Đảm bảo toàn bộ quá trình Playwright cào dữ liệu chạy ngầm trong background thread, bắn tín hiệu `Signal` về cập nhật UI, không bao giờ bị đơ ứng dụng.
+  - Form cấu hình cổng GPM API (`19996`), số luồng song song mặc định, thư mục lưu kết quả, timeout.
+- [ ] **Task 4.6:** Đấu nối Worker Thread Pool (`QThreadPool` / `QThread` Concurrency Queue):
+  - Cơ chế hàng đợi luân phiên: chạy tối đa N luồng cùng lúc; xong profile nào lập tức đóng profile đó và bốc profile tiếp theo trong hàng đợi.
+  - Bắn tín hiệu `Signal` cập nhật UI mượt mà, log real-time theo từng luồng, không đơ lag app.
 
 ---
 

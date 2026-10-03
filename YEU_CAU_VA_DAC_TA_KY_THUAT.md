@@ -38,6 +38,15 @@
   * Thao tác xuất dữ liệu: "Xuất dữ liệu" -> Tải file Excel/CSV.
 * Bộ parser đọc file Excel/CSV xuất ra phải ánh xạ chính xác các tiêu đề cột tiếng Việt (ví dụ: *Lượt xem, Thời gian xem (giờ), Thời lượng xem trung bình, Số người đăng ký, Số lượt hiển thị, Tỷ lệ nhấp của lượt hiển thị*) về các trường dữ liệu tiếng Anh chuẩn trong hệ thống (`views`, `watch_time_hours`, `average_view_duration_seconds`, `impressions`, `ctr_percent`).
 
+### 2.3. Hỗ trợ Multi-Kênh & Quản lý Luồng chạy song song (Concurrency Pool)
+* **Chọn nhiều profile/kênh cùng lúc (Multi-select):**
+  * Cho phép người dùng tích chọn 1, nhiều hoặc toàn bộ profile GPM trên phần mềm.
+  * Mỗi profile GPM tương ứng với 1 kênh YouTube và một địa chỉ IP/Proxy riêng biệt.
+* **Cơ chế chạy song song (Parallel Concurrency Queue):**
+  * Cho phép cấu hình **Số luồng chạy tối đa** (Max Concurrent Threads/Workers, mặc định là `2`, cho phép tùy chỉnh `1` - `10`).
+  * Sử dụng cơ chế hàng đợi (Queue Worker / Semaphore / ThreadPool): Tool khởi chạy đồng thời tối đa `N` profile cùng lúc; khi 1 profile hoàn tất việc cào, tool tự động đóng profile đó (hoặc giải phóng luồng) và bốc profile tiếp theo trong hàng đợi vào chạy ngay lập tức.
+  * Mỗi luồng độc lập hoàn toàn: độc lập cổng CDP, độc lập proxy, ghi dữ liệu vào thư mục `runs/` riêng của từng kênh.
+
 ---
 
 ## 3. Đặc tả Yêu cầu Giao diện Người dùng (UI/UX Requirements)
@@ -70,23 +79,24 @@ Giao diện không mở cửa sổ con rải rác mà gom trong 1 cửa sổ ứ
 ## 4. Chi tiết các Tab chức năng
 
 ### Tab 1: Thu thập dữ liệu (Trang chủ)
-* **Khu vực chọn Profile GPM:**
-  * Dropdown danh sách profile lấy trực tiếp từ GPM (tự động load, có nút "Làm mới").
-  * Nút bấm tiện ích: "Bật Profile" / "Kiểm tra Studio".
-* **Khu vực chọn Phạm vi dữ liệu (Linh hoạt theo Số lượng hoặc Thời gian):**
-  * Chọn Kênh (tự nhận diện sau khi kết nối Studio).
+* **Khu vực chọn Profile GPM (Multi-Profile & Luồng song song):**
+  * Bảng danh sách toàn bộ profile GPM có Checkbox để chọn nhiều profile/kênh cùng lúc.
+  * Nút "Chọn tất cả" và "Bỏ chọn tất cả".
+  * Ô cấu hình: **Số luồng chạy song song** (Mặc định `2`, cho phép tăng giảm).
+  * Nút "Làm mới" (Reload danh sách từ GPM API).
+* **Khu vực chọn Phạm vi dữ liệu (Áp dụng đồng loạt cho các kênh đã chọn):**
+  * Tự động nhận diện tên kênh và `channel_id` của từng profile khi chạy.
   * **Cách chọn danh sách video:**
     * **Chế độ 1: Theo số lượng video gần nhất (Mặc định):** Cho phép nhập số lượng (ví dụ: 5, 10, 20, 50 video mới nhất).
     * **Chế độ 2: Theo thời gian đăng video:** Lọc các video xuất bản trong *7 ngày qua*, *28 ngày qua*, *90 ngày qua*, hoặc tùy chỉnh ngày.
     * **Chế độ 3: Toàn bộ video** trên kênh.
-    * **Chế độ 4: Tự chọn thủ công** trong danh sách.
   * **Khung thời gian phân tích số liệu (Analytics Date Range):** *28 ngày qua*, *90 ngày qua*, *365 ngày qua*, hoặc *Toàn thời gian (Lifetime)*.
   * Mức thu thập: Radio chọn *Nhanh* / *Tiêu chuẩn* / *Đầy đủ*.
-* **Khu vực Nút Hành động & Tiến độ:**
+* **Khu vực Nút Hành động & Tiến độ Đa luồng:**
   * Nút to nổi bật: **[ BẮT ĐẦU THU THẬP ]** (Màu xanh dương).
   * Nút phụ: **[ Tạm dừng ]**, **[ Mở thư mục kết quả ]**.
-  * Thanh tiến trình tổng (Progress bar 0 - 100%).
-  * Khung tóm tắt trạng thái hiện tại (Ví dụ: *"Đang xuất báo cáo Nguồn truy cập cho video 06..."*).
+  * Thanh tiến trình tổng (% toàn bộ chiến dịch, số profile đã hoàn thành / tổng số).
+  * Danh sách trạng thái luồng trực tiếp (Live Worker List): Trạng thái chi tiết của từng luồng và profile đang xử lý.
 
 ### Tab 2: Lịch sử & Kết quả
 * Danh sách các đợt chạy trước đó trong thư mục `runs/`.
