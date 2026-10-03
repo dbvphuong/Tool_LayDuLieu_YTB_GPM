@@ -14,9 +14,9 @@
 ## 2. Danh sách Task theo từng giai đoạn (Checklist)
 
 ### Giai đoạn 0: Khởi tạo Môi trường & Git
-- [ ] **Task 0.1:** Khởi tạo Git repository cục bộ, cấu hình remote `https://github.com/dbvphuong/Tool_LayDuLieu_YTB_GPM.git` và commit bộ tài liệu thiết kế.
-- [ ] **Task 0.2:** Tạo môi trường ảo Python `.venv` tại thư mục dự án.
-- [ ] **Task 0.3:** Cài đặt toàn bộ dependencies trong `requirements.txt` (`pyside6`, `playwright`, `httpx`, `pandas`, `openpyxl`, `pydantic`).
+- [x] **Task 0.1:** Khởi tạo Git repository cục bộ, cấu hình remote `https://github.com/dbvphuong/Tool_LayDuLieu_YTB_GPM.git` và commit bộ tài liệu thiết kế.
+- [x] **Task 0.2:** Tạo môi trường ảo Python `.venv` tại thư mục dự án.
+- [x] **Task 0.3:** Cài đặt toàn bộ dependencies trong `requirements.txt` (`pyside6`, `playwright`, `httpx`, `pandas`, `openpyxl`, `pydantic`).
 
 ---
 
