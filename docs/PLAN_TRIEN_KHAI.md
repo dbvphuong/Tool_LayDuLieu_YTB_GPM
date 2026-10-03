@@ -21,7 +21,7 @@
 ---
 
 ### Giai đoạn 1: Kết nối GPM Local API & Kiểm thử Profile 06
-- [ ] **Task 1.1:** Xây dựng module `src/ytb_gpm_collector/integrations/gpm/client.py`:
+- [x] **Task 1.1:** Xây dựng module `src/ytb_gpm_collector/integrations/gpm/client.py`:
   - Đọc cấu hình port API từ `setting.dat` (mặc định `19996`).
   - Hàm `get_profiles()`: Lấy danh sách profile (ID, Tên, Proxy).
   - Hàm `start_profile(profile_id)`: Gọi API GPM để mở profile, nhận lại `remote_debugging_address` (CDP URL).
